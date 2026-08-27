@@ -193,3 +193,48 @@ gh attestation verify oci://ghcr.io/magnusp/apps/archetype-backend:<commit-sha> 
 # Verify application values artifact
 gh attestation verify oci://ghcr.io/magnusp/apps/archetype-backend-values:latest --owner magnusp
 ```
+
+---
+
+## Bare-Metal & Alternative Delivery Options
+
+While this repository demonstrates GitHub Actions with GitHub OIDC, the same Kyverno and Flux architecture adapts directly to **bare-metal / on-premises clusters** using modern Identity Providers (Entra ID, Google Workspace, GitHub, Okta, Keycloak) without requiring cloud-hosted Kubernetes (EKS/GKE/AKS) or cloud KMS:
+
+| Pattern | Signing & Identity Mechanism | Kyverno Verification Mechanism |
+| :--- | :--- | :--- |
+| **Developer Workstation CLI** | Cosign with Corporate OIDC (Microsoft Entra ID, Google Workspace, GitHub) + Public Sigstore Rekor | `verifyImages` keyless rule matching corporate issuer (e.g. `login.microsoftonline.com`, `accounts.google.com`) and user email regex. |
+| **Self-Hosted CI Runners** | Bare-metal runners (GitLab CI, Jenkins, Drone) signing via HashiCorp Vault Transit Engine or local Cosign keys | `verifyImages` rule checking static public keys stored in a Kubernetes `Secret` or fetched from on-prem Vault. |
+| **ChatOps / Webhooks** | Slack / Mattermost webhook $\rightarrow$ Flux `Receiver` carrying triggering user email | Kyverno `apiCall` querying in-cluster SpiceDB to verify if the user has `deploy` permissions on the service. |
+| **Direct `kubectl` Access** | Entra ID / Google / Keycloak OIDC Kubeconfig | Kyverno validation evaluating `request.userInfo.username` against SpiceDB ReBAC; blocks direct production edits in favor of GitOps. |
+| **Automated Dependency Bots** | Renovate / Dependabot with dedicated bot keypair | Public key verification + OpenVEX / in-toto vulnerability scan conditions. |
+
+### Example: Keyless Sigstore with Microsoft Entra ID / Google Workspace
+```yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-corporate-oidc-attestations
+spec:
+  validationFailureAction: Enforce
+  rules:
+    - name: verify-developer-identity
+      match:
+        any:
+          - resources:
+              kinds: [Deployment]
+              namespaceSelector:
+                matchLabels:
+                  governance.platform.io/managed: "true"
+      verifyImages:
+        - imageReferences: ["ghcr.io/magnusp/apps/*"]
+          attestations:
+            - type: "https://slsa.dev/provenance/v1"
+              attestors:
+                - entries:
+                    - keyless:
+                        # Microsoft Entra ID, Google Workspace, or GitHub
+                        issuer: "https://login.microsoftonline.com/<tenant-id>/v2.0"
+                        subjectRegExp: ".*@company.com"
+                        rekor:
+                          url: "https://rekor.sigstore.dev"
+```
