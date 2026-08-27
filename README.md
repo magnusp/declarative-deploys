@@ -9,6 +9,9 @@ Local kind cluster bootstrapped with Flux, and the Helm charts it's meant to run
 * `clusters/kind/` — the manifests Flux reconciles onto the cluster: an
   `OCIRepository`/`HelmRelease` pair per workload, sourced straight from this git
   repository (see `flux_git_repository`/`flux_git_path` in `kind-cluster/variables.tf`).
+* `apps-source/` — a simulated application repository: an nginx-based image plus
+  the `archetype-backend` values it should be deployed with, published by their
+  own GitHub Actions workflows (see below).
 
 ## Standing up, checking, and tearing down the cluster
 
@@ -42,23 +45,49 @@ public too. If you ever add a source that isn't public, apply its pull secret
 manually (`kubectl create secret ... -n flux-system`, referenced via that
 source's `secretRef`/`pullSecret`) rather than committing a credential here.
 
-## Verifying attestations of published charts
+## Simulated application: apps-source/
 
-Charts are published to GHCR by the `Publish Helm chart` workflow
-(`.github/workflows/publish-chart.yaml`), which attests build provenance for
-every chart it pushes. To verify that a chart version was produced by that
-workflow (and not pushed by hand), use the GitHub CLI:
+`apps-source/` stands in for a development team's own repository. It builds an
+image on top of `nginx` with a custom `index.html`, and carries the
+`archetype-backend` chart values (`values.yaml`) that describe how it wants to
+be deployed. Two workflows drive it:
+
+* **`Build app image`** (`.github/workflows/build-app-image.yaml`) — builds
+  `apps-source/` and pushes `ghcr.io/magnusp/apps/archetype-backend:<commit-sha>`,
+  attesting build provenance for the pushed digest.
+* **`Bump archetype-backend values`**
+  (`.github/workflows/publish-app-values.yaml`) — takes an `image_tag` input,
+  writes it into `apps-source/values.yaml`, and pushes the whole `apps-source/`
+  directory (including its `kustomization.yaml`, which turns `values.yaml` into
+  a `ConfigMap`) as an OCI artifact to
+  `ghcr.io/magnusp/apps/archetype-backend-values:latest`, also attested.
+
+This is the "gitops version bump": `latest` is a mutable tag, so publishing a
+new values artifact *is* the deploy. Flux's `archetype-backend-values`
+`OCIRepository` (`clusters/kind/ocirepository-archetype-backend-values.yaml`)
+re-pulls it every minute; its paired `Kustomization`
+(`clusters/kind/kustomization-archetype-backend-values.yaml`) rebuilds the
+`ConfigMap`; and the `archetype-backend-demo` `HelmRelease` reads it via
+`valuesFrom`, upgrading automatically — no commit against `clusters/kind/`
+required. In a real setup you'd typically chain the two workflows (build image,
+then bump values with that image's tag) rather than run them independently.
+
+## Verifying attestations of published artifacts
+
+Every publish workflow in this repo (`Publish Helm chart`, `Build app image`,
+`Bump archetype-backend values`) attests build provenance for what it pushes.
+To verify that an artifact was produced by its workflow (and not pushed by
+hand), use the GitHub CLI against any of:
 
 ```sh
-gh attestation verify \
-  oci://ghcr.io/magnusp/charts/<chart>:<version> \
-  --owner magnusp
+gh attestation verify oci://ghcr.io/magnusp/charts/<chart>:<version> --owner magnusp
+gh attestation verify oci://ghcr.io/magnusp/apps/archetype-backend:<commit-sha> --owner magnusp
+gh attestation verify oci://ghcr.io/magnusp/apps/archetype-backend-values:latest --owner magnusp
 ```
 
 This confirms the artifact's digest matches a provenance attestation signed by
 a GitHub Actions run in this repository, and prints the workflow run that
-produced it. Replace `<chart>` and `<version>` with the chart name (e.g.
-`archetype-backend`) and the version you want to check.
+produced it.
 
 You can also list all attestations for a given digest without verifying:
 

@@ -1,0 +1,15 @@
+# Tracks the apps-source/ payload published by
+# .github/workflows/publish-app-values.yaml — a ConfigMapGenerator
+# kustomization wrapping the application's chart values. The mutable
+# `latest` tag plus a short interval is what makes this a "gitops version
+# bump": publishing a new artifact is the deploy, no git commit required.
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: OCIRepository
+metadata:
+  name: archetype-backend-values
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: oci://ghcr.io/magnusp/apps/archetype-backend-values
+  ref:
+    tag: latest
