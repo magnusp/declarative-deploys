@@ -7,6 +7,11 @@
 # HelmReleases, not the Kustomization that creates the ConfigMap below.
 # Until that ConfigMap exists, this HelmRelease simply fails and retries
 # on its own interval.
+#
+# interval is short (10s) because helm-controller does not watch
+# valuesFrom ConfigMaps/Secrets for changes — it only re-reconciles on this
+# interval or when chartRef changes. Without a short interval, a new values
+# artifact could sit unapplied for up to `interval` before it's picked up.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -16,7 +21,7 @@ spec:
   targetNamespace: default
   install:
     createNamespace: true
-  interval: 10m
+  interval: 10s
   chartRef:
     kind: OCIRepository
     name: archetype-backend
