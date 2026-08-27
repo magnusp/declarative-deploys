@@ -1,0 +1,6 @@
+apiVersion: v2
+name: archetype-backend
+description: Baseline backend service chart (Deployment + Service) maintained by platform engineering
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
