@@ -103,28 +103,21 @@ generate it from scratch.
 
 ## Kyverno policies
 
-Kyverno is installed as a Flux `HelmRelease` (`kind-cluster/kyverno.tf`). Its `ClusterPolicy`
-objects live under `clusters/kind/` alongside the workloads they target.
+Kyverno is installed as a Flux `HelmRelease` (`kind-cluster/kyverno.tf`).
 
-`clusters/kind/clusterpolicy-archetype-backend-image-revision.yaml` is a first
-test policy: it mutates the `default-archetype-backend-demo` Deployment
-(Flux names the underlying Helm release `<targetNamespace>-<HelmRelease name>`
-when a release name isn't set explicitly), reading the
-`org.opencontainers.image.revision` OCI label off its own container image (via
-Kyverno's `imageRegistry` context) and writing it onto the pod template as the
-`example.com/image-revision` annotation. `build-app-image.yaml` sets that label
-to the commit SHA at build time, so once Kyverno mutates a rollout you can
-confirm it landed with:
+The architecture splits governance and deployment concerns:
+
+1. **Platform Validation Policy (`clusters/kind/clusterpolicy-disallow-manual-image-revision.yaml`)**:
+   A cluster-wide policy enforcing that developers / charts cannot manually set or forge the `example.com/image-revision` annotation in their manifests.
+2. **Archetype Mutation Policy (`charts/archetype-backend/templates/policy.yaml`)**:
+   A namespaced policy packaged inside the Helm chart that automatically queries the OCI container registry at admission time, extracts `org.opencontainers.image.revision` from the image config, and injects the authentic `example.com/image-revision` annotation onto the pod template.
+
+`build-app-image.yaml` sets that label to the commit SHA at build time, so once Kyverno mutates a rollout you can confirm it landed with:
 
 ```sh
 kubectl get deploy -n default default-archetype-backend-demo \
   -o jsonpath='{.spec.template.metadata.annotations}'
 ```
-
-This only reads a plain image-config label, not a signed attestation
-predicate — verifying an actual signed attestation at admission time would use
-Kyverno's `verifyImages`/`attestations` instead, which needs the images to be
-cosign-signed.
 
 ## Verifying attestations of published artifacts
 

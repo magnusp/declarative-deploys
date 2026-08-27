@@ -1,29 +1,26 @@
-# Test policy: stamps the archetype-backend-demo Deployment's pod template
-# with the org.opencontainers.image.revision label read off its own image's
-# OCI config — proof that Kyverno can enrich a Deployment with data that
-# only exists on the pushed image, not in its own manifest.
+# Platform validation policy: ensures developers cannot manually supply
+# or forge the example.com/image-revision annotation on Deployments with invalid values.
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: archetype-backend-image-revision
+  name: disallow-manual-image-revision
 spec:
+  validationFailureAction: Enforce
+  background: false
   rules:
-    - name: annotate-image-revision
+    - name: check-image-revision-authenticity
       match:
         any:
           - resources:
               kinds:
                 - Deployment
-              namespaces:
-                - default
-              names:
-                - default-archetype-backend-demo
       context:
         - name: imageData
           imageRegistry:
             reference: "{{ request.object.spec.template.spec.containers[0].image }}"
-      mutate:
-        patchStrategicMerge:
+      validate:
+        message: "The example.com/image-revision annotation is managed exclusively by platform policies and cannot be forged."
+        pattern:
           spec:
             template:
               metadata:

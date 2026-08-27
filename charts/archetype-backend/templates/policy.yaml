@@ -1,0 +1,27 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: {{ include "archetype-backend.name" . }}-image-revision
+  labels:
+    {{- include "archetype-backend.labels" . | nindent 4 }}
+spec:
+  rules:
+    - name: annotate-image-revision
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+              names:
+                - {{ include "archetype-backend.name" . }}
+      context:
+        - name: imageData
+          imageRegistry:
+            reference: {{ "{{ request.object.spec.template.spec.containers[0].image }}" | quote }}
+      mutate:
+        patchStrategicMerge:
+          spec:
+            template:
+              metadata:
+                annotations:
+                  example.com/image-revision: {{ "{{ imageData.configData.config.Labels.\"org.opencontainers.image.revision\" }}" | quote }}
