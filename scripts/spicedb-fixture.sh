@@ -37,12 +37,14 @@ write_relationships() {
   local updates="[]"
 
   while IFS= read -r line || [ -n "$line" ]; do
-    # Trim whitespace and strip comments
-    line=$(echo "$line" | sed 's/#.*//' | xargs)
-    [ -z "$line" ] && continue
+    # Trim whitespace
+    line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    case "$line" in
+      \#*|"") continue ;;
+    esac
 
     # Parse tuple: resource_type:resource_id#relation@subject_type:subject_id[#sub_relation]
-    if [[ "$line" =~ ^([^:]+):([^#]+)#([^@]+)@([^:#]+):([^#]+)(#(.+))?$ ]]; then
+    if [[ "$line" =~ ^([^:]+):([^#@]+)#([^#@]+)@([^:#@]+):([^#@]+)(#([^#@]+))?$ ]]; then
       local res_type="${BASH_REMATCH[1]}"
       local res_id="${BASH_REMATCH[2]}"
       local relation="${BASH_REMATCH[3]}"

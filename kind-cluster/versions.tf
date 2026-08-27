@@ -4,19 +4,19 @@ terraform {
   required_providers {
     kind = {
       source  = "tehcyx/kind"
-      version = "~> 0.7"
+      version = "~> 0.11"
     }
     helm = {
       source  = "hashicorp/helm"
-      version = "~> 2.13"
+      version = "~> 3.2.0"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "~> 2.27"
+      version = "~> 3.2.1"
     }
     kubectl = {
       source  = "gavinbunney/kubectl"
-      version = "~> 1.14"
+      version = "~> 1.19"
     }
   }
 }

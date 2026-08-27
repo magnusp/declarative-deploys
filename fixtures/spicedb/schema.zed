@@ -10,9 +10,7 @@ definition environment {
 }
 
 definition service {
-    relation owner: team
+    relation owner: team | team#member
     relation target_env: environment
-
-    // Deploy permission requires membership in the owning team OR environment admin rights
     permission deploy = owner->member + target_env->admin
 }

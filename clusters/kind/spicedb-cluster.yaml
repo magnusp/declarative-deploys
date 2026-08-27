@@ -20,7 +20,7 @@ metadata:
   namespace: authz
 spec:
   config:
-    image: authzed/spicedb:v1.36.0
+    image: authzed/spicedb:v1.56.1
     datastoreEngine: memory
     httpEnabled: "true"
     httpAddr: ":8443"
