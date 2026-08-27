@@ -72,6 +72,33 @@ re-pulls it every minute; its paired `Kustomization`
 required. In a real setup you'd typically chain the two workflows (build image,
 then bump values with that image's tag) rather than run them independently.
 
+### Publishing a new version (app team runbook)
+
+To ship a change to the application, from the GitHub Actions tab:
+
+1. **Merge your change** to `main` (or whichever branch/commit you want to
+   build — the image is tagged with that commit's SHA either way).
+2. Run **`Build app image`** on that commit. No inputs — it always builds and
+   pushes `ghcr.io/magnusp/apps/archetype-backend:<commit-sha>`.
+3. Once it succeeds, note the commit SHA (`git rev-parse HEAD`, or read it off
+   the run) and run **`Bump archetype-backend values`** with `image_tag` set
+   to that SHA.
+4. That's the deploy. Flux picks up the new `archetype-backend-values` artifact
+   on its own — no further action needed. Confirm it rolled out:
+
+   ```sh
+   kubectl get helmrelease -n flux-system archetype-backend-demo
+   kubectl get pods -n default -l app.kubernetes.io/instance=archetype-backend-demo
+   kubectl get deploy -n default -o jsonpath='{.items[0].spec.template.spec.containers[0].image}'
+   ```
+
+   The last command should print `archetype-backend:<the-sha-you-bumped-to>`.
+
+If you need to change something other than the image (replica count, chart
+version, etc.), edit `apps-source/values.yaml` directly before step 3 — the
+values workflow packages whatever is in that file at run time, it doesn't
+generate it from scratch.
+
 ## Verifying attestations of published artifacts
 
 Every publish workflow in this repo (`Publish Helm chart`, `Build app image`,
