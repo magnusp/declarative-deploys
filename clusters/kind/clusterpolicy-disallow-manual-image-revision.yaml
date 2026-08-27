@@ -1,5 +1,5 @@
 # Platform validation policy: ensures developers cannot manually supply
-# or forge the example.com/image-revision annotation on Deployments.
+# or forge the example.com/image-revision annotation on Deployments with invalid values.
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -8,22 +8,21 @@ spec:
   validationFailureAction: Enforce
   background: false
   rules:
-    - name: check-no-manual-annotation
+    - name: check-image-revision-authenticity
       match:
         any:
           - resources:
               kinds:
                 - Deployment
-      preconditions:
-        all:
-          - key: "{{ request.object.spec.template.metadata.annotations.\"example.com/image-revision\" || '' }}"
-            operator: NotEquals
-            value: ""
+      context:
+        - name: imageData
+          imageRegistry:
+            reference: "{{ request.object.spec.template.spec.containers[0].image }}"
       validate:
-        message: "The example.com/image-revision annotation is managed exclusively by platform policies and cannot be set directly."
-        deny:
-          conditions:
-            all:
-              - key: "{{ request.userInfo.username }}"
-                operator: NotEquals
-                value: "system:serviceaccount:kyverno:kyverno-admission-controller"
+        message: "The example.com/image-revision annotation is managed exclusively by platform policies and cannot be forged."
+        pattern:
+          spec:
+            template:
+              metadata:
+                annotations:
+                  example.com/image-revision: "{{ imageData.configData.config.Labels.\"org.opencontainers.image.revision\" }}"
