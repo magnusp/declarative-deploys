@@ -6,6 +6,22 @@ metadata:
     {{- include "archetype-backend.labels" . | nindent 4 }}
 spec:
   rules:
+    - name: disallow-custom-image-revision-annotation
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+              names:
+                - {{ include "archetype-backend.name" . }}
+      validate:
+        message: "The example.com/image-revision annotation is managed exclusively by platform policies and cannot be set directly."
+        pattern:
+          spec:
+            template:
+              metadata:
+                annotations:
+                  X(example.com/image-revision): "*?"
     - name: annotate-image-revision
       match:
         any:
