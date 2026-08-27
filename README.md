@@ -3,8 +3,8 @@
 Local kind cluster bootstrapped with Flux, and the Helm charts it's meant to run.
 
 * `kind-cluster/` — OpenTofu stack that creates the kind cluster and installs Flux
-  (via the `flux-operator` OCI chart) plus cert-manager and Kyverno (both as Flux
-  `HelmRelease`s).
+  (via the `flux-operator` OCI chart) plus Kyverno (as a Flux
+  `HelmRelease`).
 * `charts/` — Helm charts owned by platform engineering, consumed by development
   teams, published to GitHub Packages (GHCR) via a manual GitHub Actions workflow.
 * `clusters/kind/` — the manifests Flux reconciles onto the cluster: an
@@ -22,8 +22,8 @@ the OpenTofu stack. Run it from the `kind-cluster/` directory:
 ```sh
 cd kind-cluster
 
-./cluster.sh up      # create the kind cluster, install Flux + cert-manager, then check
-./cluster.sh check   # wait for Flux and cert-manager to report Ready, print pod status
+./cluster.sh up      # create the kind cluster, install Flux + Kyverno, then check
+./cluster.sh check   # wait for Flux and Kyverno to report Ready, print pod status
 ./cluster.sh down    # destroy the OpenTofu stack and the kind cluster
 ```
 
@@ -103,8 +103,7 @@ generate it from scratch.
 
 ## Kyverno policies
 
-Kyverno is installed as a Flux `HelmRelease` (`kind-cluster/kyverno.tf`), the
-same OCIRepository/HelmRelease pattern as cert-manager. Its `ClusterPolicy`
+Kyverno is installed as a Flux `HelmRelease` (`kind-cluster/kyverno.tf`). Its `ClusterPolicy`
 objects live under `clusters/kind/` alongside the workloads they target.
 
 `clusters/kind/clusterpolicy-archetype-backend-image-revision.yaml` is a first

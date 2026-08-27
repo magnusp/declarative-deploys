@@ -1,5 +1,4 @@
-# Kyverno is reconciled by Flux, sourced from its OCI chart, following the
-# same OCIRepository/HelmRelease pattern as cert-manager.
+# Kyverno is reconciled by Flux, sourced from its OCI chart.
 resource "kubectl_manifest" "kyverno_oci_repository" {
   yaml_body = yamlencode({
     apiVersion = "source.toolkit.fluxcd.io/v1beta2"
