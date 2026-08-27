@@ -1,7 +1,7 @@
 # Kyverno is reconciled by Flux, sourced from its OCI chart.
 resource "kubectl_manifest" "kyverno_oci_repository" {
   yaml_body = yamlencode({
-    apiVersion = "source.toolkit.fluxcd.io/v1beta2"
+    apiVersion = "source.toolkit.fluxcd.io/v1"
     kind       = "OCIRepository"
     metadata = {
       name      = "kyverno"

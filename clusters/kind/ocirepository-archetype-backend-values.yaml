@@ -2,7 +2,7 @@
 # .github/workflows/publish-app-values.yaml containing values.yaml. The mutable
 # `latest` tag plus source-watcher artifact generation is what makes this a "gitops version
 # bump": publishing a new artifact is the deploy, no git commit required.
-apiVersion: source.toolkit.fluxcd.io/v1beta2
+apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
   name: archetype-backend-values
