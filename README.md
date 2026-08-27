@@ -3,7 +3,8 @@
 Local kind cluster bootstrapped with Flux, and the Helm charts it's meant to run.
 
 * `kind-cluster/` — OpenTofu stack that creates the kind cluster and installs Flux
-  (via the `flux-operator` OCI chart) plus cert-manager (as a Flux `HelmRelease`).
+  (via the `flux-operator` OCI chart) plus cert-manager and Kyverno (both as Flux
+  `HelmRelease`s).
 * `charts/` — Helm charts owned by platform engineering, consumed by development
   teams, published to GitHub Packages (GHCR) via a manual GitHub Actions workflow.
 * `clusters/kind/` — the manifests Flux reconciles onto the cluster: an
@@ -98,6 +99,30 @@ If you need to change something other than the image (replica count, chart
 version, etc.), edit `apps-source/values.yaml` directly before step 3 — the
 values workflow packages whatever is in that file at run time, it doesn't
 generate it from scratch.
+
+## Kyverno policies
+
+Kyverno is installed as a Flux `HelmRelease` (`kind-cluster/kyverno.tf`), the
+same OCIRepository/HelmRelease pattern as cert-manager. Its `ClusterPolicy`
+objects live under `clusters/kind/` alongside the workloads they target.
+
+`clusters/kind/clusterpolicy-archetype-backend-image-revision.yaml` is a first
+test policy: it mutates the `archetype-backend-demo` Deployment, reading the
+`org.opencontainers.image.revision` OCI label off its own container image (via
+Kyverno's `imageRegistry` context) and writing it onto the pod template as the
+`example.com/image-revision` annotation. `build-app-image.yaml` sets that label
+to the commit SHA at build time, so once Kyverno mutates a rollout you can
+confirm it landed with:
+
+```sh
+kubectl get deploy -n default archetype-backend-demo \
+  -o jsonpath='{.spec.template.metadata.annotations}'
+```
+
+This only reads a plain image-config label, not a signed attestation
+predicate — verifying an actual signed attestation at admission time would use
+Kyverno's `verifyImages`/`attestations` instead, which needs the images to be
+cosign-signed.
 
 ## Verifying attestations of published artifacts
 

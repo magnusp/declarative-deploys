@@ -45,3 +45,9 @@ variable "cert_manager_version" {
   type        = string
   default     = "v1.16.2"
 }
+
+variable "kyverno_version" {
+  description = "Kyverno chart version (OCI tag) for Flux to reconcile."
+  type        = string
+  default     = "3.9.0"
+}
