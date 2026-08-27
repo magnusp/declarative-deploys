@@ -72,6 +72,19 @@ This document records the chronological development, architectural trade-offs, a
 
 ---
 
+### Phase 5: Zero-Trust Delivery & SpiceDB ReBAC Authorization
+
+*   **[PR #17](https://github.com/magnusp/declarative-deploys/pull/17)**: *Add SpiceDB operator, in-cluster ephemeral ReBAC authorization, human-readable fixtures, and dedicated apps workspace*
+    *   **Problem**: In GitOps, cluster controllers execute deployments using generic machine identities, making it difficult to enforce who originally authored or triggered the release without granting engineers direct cluster access. Additionally, global Kyverno cluster policies must not interfere with third-party or infrastructure controllers.
+    *   **Solution**:
+        1.  **OCI Deployer Attestation & Metadata**: Workflows (`build-app-image.yaml` and `publish-app-values.yaml`) stamp the triggering GitHub actor (`dev.authz.app.deployer`) into the OCI artifact labels.
+        2.  **Dedicated Opt-In Apps Workspace**: Created `namespace/apps` labeled with `governance.platform.io/managed: "true"` and scoped all Kyverno validation and ReBAC cluster policies with `namespaceSelector` to safely confine policy evaluation to application workloads.
+        3.  **SpiceDB Operator via Flux**: Installed `authzed/spicedb-operator` using Flux `GitRepository` + `Kustomization` with explicit RBAC extensions (`spicedb-operator-rbac.yaml`).
+        4.  **In-Cluster Ephemeral SpiceDB & Human-Readable Fixtures**: Deployed a `SpiceDBCluster` resource in namespace `authz` and an automated initialization `Job` that seeds schema (`schema.zed`) and relationship tuples (`relationships.txt`) from a ConfigMap.
+        5.  **Kyverno Admission Policy**: Added `ClusterPolicy/spicedb-attested-deploy-authz` querying SpiceDB's `/v1/permissions/check` API to assert that the actor has `deploy` permissions before admitting the workload.
+
+---
+
 ## Architectural Decision Summary Matrix
 
 | Decision Area | Previous Approach | Final Approach | Rationale |
@@ -81,4 +94,5 @@ This document records the chronological development, architectural trade-offs, a
 | **Failure Remediation** | `retries: -1` (unbounded) | `retries: 3` + `rollback` | Automatically rolls back to the last stable release on failure; recovers automatically on next valid publish. |
 | **Policy Scope** | Single static `ClusterPolicy` in GitOps | Split: Platform Validation (`ClusterPolicy`) + Chart Mutation (`Policy`) | Guarantees tamper-resistance while making archetype charts self-contained. |
 | **Policy Reporting** | None (in-memory reports only) | Policy Reporter + Persistent SQLite (PVC) + Web UI | Persists policy reports and audit logs locally with zero external database dependencies. |
+| **Deployment Authorization** | Kubernetes RBAC on Flux machine account | Provenance Deployer Identity + SpiceDB ReBAC check | Enforces decentralized zero-trust access control without giving developers cluster credentials. |
 | **In-Cluster TLS** | `cert-manager` installed via Flux | Removed | Reduced cluster surface area and cut standup time in half. |

@@ -1,0 +1,61 @@
+# Kyverno platform policy: verifies that the actor who pushed/built the
+# container image or values artifact has 'deploy' permission on the target
+# workload according to SpiceDB ReBAC relations.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: spicedb-attested-deploy-authz
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: check-spicedb-deployer-permission
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+              namespaceSelector:
+                matchLabels:
+                  governance.platform.io/managed: "true"
+      context:
+        - name: imageData
+          imageRegistry:
+            reference: "{{ request.object.spec.template.spec.containers[0].image }}"
+        # Read the deployer actor from the OCI container image labels
+        - name: deployer
+          variable:
+            jmesPath: "imageData.configData.config.Labels.\"dev.authz.app.deployer\" || imageData.configData.config.Labels.\"org.opencontainers.image.vendor\" || ''"
+        - name: spiceDbCheck
+          apiCall:
+            urlPath: "http://spicedb.authz.svc.cluster.local:8443/v1/permissions/check"
+            method: POST
+            data:
+              - key: consistency
+                value:
+                  fullyConsistent: true
+              - key: resource
+                value:
+                  objectType: "service"
+                  objectId: "{{ request.object.metadata.name }}"
+              - key: permission
+                value: "deploy"
+              - key: subject
+                value:
+                  object:
+                    objectType: "user"
+                    objectId: "{{ deployer }}"
+      preconditions:
+        all:
+          # Only enforce when the workload image contains our deployer metadata
+          - key: "{{ deployer }}"
+            operator: NotEquals
+            value: ""
+      validate:
+        message: "Deployment Rejected by SpiceDB: Actor '{{ deployer }}' does not have 'deploy' permissions on service '{{ request.object.metadata.name }}'."
+        deny:
+          conditions:
+            all:
+              - key: "{{ spiceDbCheck.permissionship }}"
+                operator: NotEquals
+                value: "PERMISSIONSHIP_HAS_PERMISSION"

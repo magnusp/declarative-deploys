@@ -37,6 +37,8 @@ This repository demonstrates a separation of concerns between **platform teams**
 *   [`charts/`](charts/): Platform-owned Helm charts consumed by application teams.
 *   [`clusters/kind/`](clusters/kind/): Flux manifests defining the continuous delivery pipeline: `OCIRepository`, `ArtifactGenerator`, `HelmRelease`, and governance policies.
 *   [`apps-source/`](apps-source/): Simulated application repository containing the container build files and environment values (`values.yaml`).
+*   [`fixtures/spicedb/`](fixtures/spicedb/): Human-readable SpiceDB schema (`schema.zed`) and relationship tuples (`relationships.txt`).
+*   [`scripts/`](scripts/): Developer CLI utilities, including `spicedb-fixture.sh` for testing permissions and updating fixtures.
 *   [`.github/workflows/`](.github/workflows/): GitHub Actions workflows for publishing charts, images, and values artifacts with build provenance attestations.
 
 ---
@@ -81,14 +83,18 @@ The application team delivers updates independently of the platform GitOps repos
 
 ### Workflows
 
-1.  **Build app image** (`.github/workflows/build-app-image.yaml`):
+1.  **Publish Helm chart** (`.github/workflows/publish-chart.yaml`):
+    *   Packages the platform chart (`charts/archetype-backend`) with a given SemVer version.
+    *   Pushes `oci://ghcr.io/magnusp/charts/archetype-backend:<version>`.
+    *   Generates a GitHub build provenance attestation.
+2.  **Build app image** (`.github/workflows/build-app-image.yaml`):
     *   Builds the container image from `apps-source/`.
     *   Pushes `ghcr.io/magnusp/apps/archetype-backend:<commit-sha>`.
-    *   Stamps the OCI config label `org.opencontainers.image.revision` with the commit SHA.
+    *   Stamps the OCI config labels `org.opencontainers.image.revision`, `org.opencontainers.image.vendor`, and `dev.authz.app.deployer`.
     *   Generates a GitHub build provenance attestation.
-2.  **Bump archetype-backend values** (`.github/workflows/publish-app-values.yaml`):
+3.  **Bump archetype-backend values** (`.github/workflows/publish-app-values.yaml`):
     *   Updates `image.tag` in `apps-source/values.yaml` to the target commit SHA.
-    *   Pushes `apps-source/` as an OCI artifact to `ghcr.io/magnusp/apps/archetype-backend-values:latest`.
+    *   Pushes `apps-source/` as an OCI artifact to `ghcr.io/magnusp/apps/archetype-backend-values:latest` with deployer provenance annotations.
     *   Generates a GitHub build provenance attestation.
 
 ### Releasing an Application Update (Runbook)
@@ -105,8 +111,8 @@ Follow these steps to deploy an application change:
 
     ```sh
     kubectl get helmrelease -n flux-system archetype-backend-demo
-    kubectl get pods -n default -l app.kubernetes.io/instance=archetype-backend-demo
-    kubectl get deploy -n default default-archetype-backend-demo \
+    kubectl get pods -n apps -l app.kubernetes.io/instance=archetype-backend-demo
+    kubectl get deploy -n apps apps-archetype-backend-demo \
       -o jsonpath='{.items[0].spec.template.spec.containers[0].image}'
     ```
 
@@ -114,10 +120,10 @@ Follow these steps to deploy an application change:
 
 ## Platform Governance & Kyverno Policies
 
-This repository separates policy enforcement into two layers:
+This repository separates policy enforcement into two layers and scopes governance policies to opt-in application workspaces labeled `governance.platform.io/managed: "true"` (e.g. `namespace/apps`):
 
 1.  **Platform Validation Policy** ([`clusters/kind/clusterpolicy-disallow-manual-image-revision.yaml`](clusters/kind/clusterpolicy-disallow-manual-image-revision.yaml)):
-    *   Enforces cluster-wide that developers and incoming Helm charts cannot manually set or forge the `example.com/image-revision` annotation on `Deployment` templates.
+    *   Enforces across managed workspaces that developers and incoming Helm charts cannot manually set or forge the `example.com/image-revision` annotation on `Deployment` templates.
 2.  **Archetype Mutation Policy** ([`charts/archetype-backend/templates/policy.yaml`](charts/archetype-backend/templates/policy.yaml)):
     *   A namespaced Kyverno `Policy` packaged with the archetype chart.
     *   At admission time, it queries the OCI registry for the container image configuration, extracts `org.opencontainers.image.revision`, and injects it into `spec.template.metadata.annotations`.
@@ -125,7 +131,7 @@ This repository separates policy enforcement into two layers:
 To verify that the verified image revision was stamped on the running workload:
 
 ```sh
-kubectl get deploy -n default default-archetype-backend-demo \
+kubectl get deploy -n apps apps-archetype-backend-demo \
   -o jsonpath='{.spec.template.metadata.annotations}'
 ```
 
@@ -140,6 +146,31 @@ kubectl port-forward -n policy-reporter svc/policy-reporter-ui 8080:8080
 ```
 
 Open `http://localhost:8080` in your browser to view real-time Kyverno policy reports, audit logs, and compliance metrics.
+
+### SpiceDB ReBAC Authorization
+
+The cluster includes an ephemeral SpiceDB instance managed by the **SpiceDB Operator** (`clusters/kind/spicedb-operator.yaml` & `clusters/kind/spicedb-cluster.yaml`) and an admission gate policy ([`clusters/kind/clusterpolicy-spicedb-authz.yaml`](clusters/kind/clusterpolicy-spicedb-authz.yaml)):
+
+1.  **OCI Deployer Metadata**: When workflows build container images and package values artifacts, they embed the triggering actor (`dev.authz.app.deployer`) in the OCI labels.
+2.  **Admission Gate Check**: When Flux reconciles a deployment, Kyverno extracts the deployer identity and queries SpiceDB's `/v1/permissions/check` API to verify if the actor has `deploy` permissions on the service.
+3.  **Human-Readable Fixtures (`fixtures/spicedb/`)**:
+    *   [`fixtures/spicedb/schema.zed`](fixtures/spicedb/schema.zed): Standard SpiceDB schema definition using `.zed` syntax.
+    *   [`fixtures/spicedb/relationships.txt`](fixtures/spicedb/relationships.txt): Line-delimited relationship tuples (`resource#relation@subject`).
+4.  **Experimenting & Testing Permissions**:
+
+```sh
+# Port-forward SpiceDB HTTP API
+kubectl port-forward -n authz svc/spicedb 8443:8443
+
+# Check if user 'magnusp' has deploy permission
+./scripts/spicedb-fixture.sh check magnusp
+
+# Check an unauthorized user
+./scripts/spicedb-fixture.sh check unauthorized-dev
+
+# Edit fixtures/spicedb/relationships.txt or schema.zed, then apply:
+./scripts/spicedb-fixture.sh apply
+```
 
 ---
 

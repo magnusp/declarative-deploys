@@ -47,6 +47,11 @@ check() {
   echo "Waiting for Policy Reporter pods..."
   mise exec -- kubectl wait --for=condition=Ready pods --all -n policy-reporter --timeout=180s
 
+  if mise exec -- kubectl get namespace authz > /dev/null 2>&1; then
+    echo "Waiting for SpiceDB deployment in authz namespace..."
+    mise exec -- kubectl wait --for=condition=Available deployment/spicedb-spicedb -n authz --timeout=180s || true
+  fi
+
   echo
   echo "--- flux-system pods ---"
   mise exec -- kubectl get pods -n flux-system
@@ -56,6 +61,11 @@ check() {
   echo
   echo "--- policy-reporter pods ---"
   mise exec -- kubectl get pods -n policy-reporter
+  if mise exec -- kubectl get namespace authz > /dev/null 2>&1; then
+    echo
+    echo "--- authz (spicedb) pods ---"
+    mise exec -- kubectl get pods -n authz
+  fi
   echo
   echo "Cluster and Flux bootstrap are healthy."
 }

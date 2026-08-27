@@ -1,0 +1,43 @@
+# RBAC ClusterRole extension granting spicedb-operator permissions to manage PodDisruptionBudgets
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spicedb-operator-pdb-extension
+rules:
+  - apiGroups:
+      - policy
+    resources:
+      - poddisruptionbudgets
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - discovery.k8s.io
+    resources:
+      - endpointslices
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: spicedb-operator-pdb-extension
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: spicedb-operator-pdb-extension
+subjects:
+  - kind: ServiceAccount
+    name: spicedb-operator
+    namespace: spicedb-operator

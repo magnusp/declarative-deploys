@@ -1,0 +1,123 @@
+# In-cluster ConfigMap containing the human-editable SpiceDB schema and relationship fixtures.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spicedb-fixtures
+  namespace: authz
+data:
+  schema.zed: |
+    definition user {}
+
+    definition team {
+        relation member: user
+    }
+
+    definition environment {
+        relation admin: user
+    }
+
+    definition service {
+        relation owner: team
+        relation target_env: environment
+
+        permission deploy = owner->member + target_env->admin
+    }
+
+  relationships.txt: |
+    # Team backend_core owns the demo service in apps workspace
+    service:apps-archetype-backend-demo#owner@team:backend_core#member
+
+    # magnusp is authorized to deploy
+    team:backend_core#member@user:magnusp
+---
+# In-cluster Job that applies the ConfigMap fixtures to SpiceDB via curl + jq
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: spicedb-init-fixture
+  namespace: authz
+spec:
+  ttlSecondsAfterFinished: 120
+  template:
+    spec:
+      restartPolicy: OnFailure
+      volumes:
+        - name: fixtures
+          configMap:
+            name: spicedb-fixtures
+      containers:
+        - name: init-fixture
+          image: badouralix/curl-jq:latest
+          volumeMounts:
+            - name: fixtures
+              mountPath: /fixtures
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "Waiting for SpiceDB HTTP API..."
+              until curl -s -X POST http://spicedb.authz.svc.cluster.local:8443/v1/schema/read \
+                -H "Content-Type: application/json" \
+                -H "Authorization: Bearer showcase-authz-key" \
+                -d '{}' | grep -Eq '(schemaText|message)'; do
+                echo "SpiceDB not ready yet, retrying in 3s..."
+                sleep 3
+              done
+
+              echo "Applying schema from /fixtures/schema.zed..."
+              SCHEMA_JSON=$(jq -n --rawfile schema /fixtures/schema.zed '{schema: $schema}')
+              curl -s -f -X POST http://spicedb.authz.svc.cluster.local:8443/v1/schema/write \
+                -H "Content-Type: application/json" \
+                -H "Authorization: Bearer showcase-authz-key" \
+                -d "$SCHEMA_JSON"
+
+              echo "Applying relationships from /fixtures/relationships.txt..."
+              UPDATES="[]"
+              while IFS= read -r line || [ -n "$line" ]; do
+                line=$(echo "$line" | sed 's/#.*//' | xargs)
+                [ -z "$line" ] && continue
+
+                if echo "$line" | grep -Eq '^([^:]+):([^#]+)#([^@]+)@([^:#]+):([^#]+)(#(.+))?$'; then
+                  RES_TYPE=$(echo "$line" | sed -E 's/^([^:]+):([^#]+)#([^@]+)@([^:#]+):([^#]+)(#(.+))?$/\1/')
+                  RES_ID=$(echo "$line" | sed -E 's/^([^:]+):([^#]+)#([^@]+)@([^:#]+):([^#]+)(#(.+))?$/\2/')
+                  REL=$(echo "$line" | sed -E 's/^([^:]+):([^#]+)#([^@]+)@([^:#]+):([^#]+)(#(.+))?$/\3/')
+                  SUBJ_TYPE=$(echo "$line" | sed -E 's/^([^:]+):([^#]+)#([^@]+)@([^:#]+):([^#]+)(#(.+))?$/\4/')
+                  SUBJ_ID=$(echo "$line" | sed -E 's/^([^:]+):([^#]+)#([^@]+)@([^:#]+):([^#]+)(#(.+))?$/\5/')
+                  SUBJ_REL=$(echo "$line" | sed -E 's/^([^:]+):([^#]+)#([^@]+)@([^:#]+):([^#]+)(#(.+))?$/\7/')
+                  
+                  if [ -n "$SUBJ_REL" ]; then
+                    TUPLE_JSON=$(jq -n \
+                      --arg rt "$RES_TYPE" --arg ri "$RES_ID" --arg rel "$REL" \
+                      --arg st "$SUBJ_TYPE" --arg si "$SUBJ_ID" --arg sr "$SUBJ_REL" \
+                      '{
+                        operation: "OPERATION_TOUCH",
+                        relationship: {
+                          resource: { objectType: $rt, objectId: $ri },
+                          relation: $rel,
+                          subject: { object: { objectType: $st, objectId: $si }, optionalRelation: $sr }
+                        }
+                      }')
+                  else
+                    TUPLE_JSON=$(jq -n \
+                      --arg rt "$RES_TYPE" --arg ri "$RES_ID" --arg rel "$REL" \
+                      --arg st "$SUBJ_TYPE" --arg si "$SUBJ_ID" \
+                      '{
+                        operation: "OPERATION_TOUCH",
+                        relationship: {
+                          resource: { objectType: $rt, objectId: $ri },
+                          relation: $rel,
+                          subject: { object: { objectType: $st, objectId: $si } }
+                        }
+                      }')
+                  fi
+                  UPDATES=$(echo "$UPDATES" | jq --argjson u "$TUPLE_JSON" '. += [$u]')
+                fi
+              done < /fixtures/relationships.txt
+
+              curl -s -f -X POST http://spicedb.authz.svc.cluster.local:8443/v1/relationships/write \
+                -H "Content-Type: application/json" \
+                -H "Authorization: Bearer showcase-authz-key" \
+                -d "{\"updates\": $UPDATES}"
+
+              echo "SpiceDB initialized successfully!"

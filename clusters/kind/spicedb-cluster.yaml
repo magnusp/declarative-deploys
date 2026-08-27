@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: authz
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: spicedb-preshared-key
+  namespace: authz
+type: Opaque
+stringData:
+  preshared_key: "showcase-authz-key"
+---
+# Ephemeral in-cluster SpiceDB cluster managed by the SpiceDB Operator
+apiVersion: authzed.com/v1alpha1
+kind: SpiceDBCluster
+metadata:
+  name: spicedb
+  namespace: authz
+spec:
+  config:
+    image: authzed/spicedb:v1.36.0
+    datastoreEngine: memory
+    httpEnabled: "true"
+    httpAddr: ":8443"
+    grpcAddr: ":50051"
+  secretName: spicedb-preshared-key

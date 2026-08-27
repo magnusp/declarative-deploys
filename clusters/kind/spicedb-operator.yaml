@@ -1,0 +1,37 @@
+# Tracks the upstream authzed/spicedb-operator git repository.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: spicedb-operator
+  namespace: flux-system
+spec:
+  interval: 2h
+  url: https://github.com/authzed/spicedb-operator
+  ref:
+    tag: v1.9.0
+---
+# Reconciles the SpiceDB Operator CRDs and controller with Server-Side Apply.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: spicedb-operator
+  namespace: flux-system
+spec:
+  interval: 2h
+  path: ./config
+  prune: true
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: spicedb-operator
+  patches:
+    - patch: |
+        - op: replace
+          path: /spec/template/spec/containers/0/args
+          value:
+            - run
+            - -v=4
+            - --crd=false
+      target:
+        kind: Deployment
+        name: spicedb-operator

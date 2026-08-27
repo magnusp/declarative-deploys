@@ -47,6 +47,9 @@ jobs:
             --path="./apps-source" \
             --source="${{ github.server_url }}/${{ github.repository }}" \
             --revision="${{ github.ref_name }}@sha1:${{ github.sha }}" \
+            --annotations="org.opencontainers.image.revision=${{ github.sha }}" \
+            --annotations="org.opencontainers.image.vendor=${{ github.actor }}" \
+            --annotations="dev.authz.app.deployer=${{ github.triggering_actor }}" \
             --output json | tee push.json
           echo "digest=$(jq -r '.digest' push.json)" >> "$GITHUB_OUTPUT"
           echo "repository=$(jq -r '.repository' push.json)" >> "$GITHUB_OUTPUT"

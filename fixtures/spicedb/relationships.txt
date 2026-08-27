@@ -1,0 +1,12 @@
+# Initial ReBAC relationship tuples for the showcase.
+# Format: resource_type:resource_id#relation@subject_type:subject_id
+# Lines starting with '#' are ignored.
+
+# Team backend_core owns the demo service in apps workspace
+service:apps-archetype-backend-demo#owner@team:backend_core#member
+
+# magnusp is a member of team backend_core (Authorized to deploy)
+team:backend_core#member@user:magnusp
+
+# Optional: alice is also a team member
+team:backend_core#member@user:alice
