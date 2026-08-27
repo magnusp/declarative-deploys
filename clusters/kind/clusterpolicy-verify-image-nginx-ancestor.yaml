@@ -1,0 +1,41 @@
+# Platform policy: verifies container images in managed application workspaces
+# using SLSA v1 build provenance attestations. Enforces that the image was built
+# from an authentic GitHub workflow and is derived from an approved nginx base image.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-app-image-nginx-ancestor
+spec:
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30
+  background: false
+  rules:
+    - name: verify-nginx-base-provenance
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+              namespaceSelector:
+                matchLabels:
+                  governance.platform.io/managed: "true"
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/magnusp/apps/*"
+          mutateDigest: false
+          attestations:
+            - type: "https://slsa.dev/provenance/v1"
+              attestors:
+                - entries:
+                    - keyless:
+                        issuer: "https://token.actions.githubusercontent.com"
+                        subjectRegExp: "https://github.com/magnusp/declarative-deploys/.github/workflows/.*"
+                        rekor:
+                          url: "https://rekor.sigstore.dev"
+              conditions:
+                - all:
+                    # Asserts that the build dependencies in the SLSA predicate contain nginx as a base image
+                    - key: "{{ attestation.predicate.buildDefinition.resolvedDependencies[?contains(uri, 'nginx') || contains(name, 'nginx')] | length(@) }}"
+                      operator: GreaterThanOrEquals
+                      value: 1
+                      message: "Image rejected: SLSA build provenance does not contain an approved 'nginx' base image dependency."

@@ -127,6 +127,9 @@ This repository separates policy enforcement into two layers and scopes governan
 2.  **Archetype Mutation Policy** ([`charts/archetype-backend/templates/policy.yaml`](charts/archetype-backend/templates/policy.yaml)):
     *   A namespaced Kyverno `Policy` packaged with the archetype chart.
     *   At admission time, it queries the OCI registry for the container image configuration, extracts `org.opencontainers.image.revision`, and injects it into `spec.template.metadata.annotations`.
+3.  **Image Provenance & Nginx Base Ancestor Policy** ([`clusters/kind/clusterpolicy-verify-image-nginx-ancestor.yaml`](clusters/kind/clusterpolicy-verify-image-nginx-ancestor.yaml)):
+    *   Uses Kyverno's `verifyImages` rule to verify the cryptographic SLSA v1 build provenance attestation emitted by GitHub Actions via Sigstore Rekor.
+    *   Enforces that the application container image is authentically built from this repository's workflows and explicitly anchored in an approved `nginx` base image dependency (`apps-source/Dockerfile`).
 
 To verify that the verified image revision was stamped on the running workload:
 
