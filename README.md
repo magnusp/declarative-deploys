@@ -34,6 +34,37 @@ branch. `clusters/kind/ocirepository-archetype-backend.yaml` tracks a chart vers
 published to GHCR (see below) — it can only reconcile successfully once that
 version has actually been published.
 
+## Giving Flux a GitHub token
+
+Flux needs a GitHub credential for two things: cloning this repository (the
+`GitRepository` source) and pulling chart packages from GHCR (each
+`OCIRepository` source). These need two different kinds of token, because
+**fine-grained PATs cannot authenticate to GHCR** — GitHub hasn't shipped a
+`packages` permission for them yet, only for classic tokens. So:
+
+* **GITHUB_TOKEN** — a fine-grained PAT scoped to this repository with
+  **Contents: Read-only**. Used for the git clone.
+* **GHCR_TOKEN** — a **classic** PAT with the **`read:packages`** scope
+  (classic tokens aren't repo-scoped, so this grants read access to all your
+  packages). Used for GHCR pulls.
+
+Both read from secrets in `flux-system` that `cluster.sh` applies for
+you — they are not managed by Terraform, since a token shouldn't live in
+state or in a `.tf` file.
+
+```sh
+cd kind-cluster
+export GITHUB_USERNAME=<your-github-username>
+export GITHUB_TOKEN=<the-fine-grained-pat>
+export GHCR_TOKEN=<the-classic-pat>
+./cluster.sh secrets
+```
+
+This creates `flux-git-auth` (referenced by the `FluxInstance`'s
+`sync.pullSecret`) and `ghcr-pull` (referenced by each `OCIRepository`'s
+`secretRef`) in the `flux-system` namespace. Re-run it whenever a token is
+rotated.
+
 ## Verifying attestations of published charts
 
 Charts are published to GHCR by the `Publish Helm chart` workflow

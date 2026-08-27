@@ -40,11 +40,15 @@ resource "kubectl_manifest" "flux_instance" {
         multitenant = false
         networkPolicy = true
       }
+      # pullSecret names a Secret (in flux-system) created out-of-band via
+      # `cluster.sh secrets`, since Flux's own git/OCI credentials aren't
+      # something Terraform should hold.
       sync = var.flux_git_repository == "" ? null : {
-        kind = "GitRepository"
-        url  = var.flux_git_repository
-        ref  = "refs/heads/${var.flux_git_branch}"
-        path = var.flux_git_path
+        kind       = "GitRepository"
+        url        = var.flux_git_repository
+        ref        = "refs/heads/${var.flux_git_branch}"
+        path       = var.flux_git_path
+        pullSecret = "flux-git-auth"
       }
     }
   })

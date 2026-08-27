@@ -11,3 +11,5 @@ spec:
   url: oci://ghcr.io/fortnox-lab/charts/archetype-backend
   ref:
     tag: 0.1.0
+  secretRef:
+    name: ghcr-pull
