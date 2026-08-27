@@ -45,3 +45,9 @@ variable "kyverno_version" {
   type        = string
   default     = "3.9.0"
 }
+
+variable "policy_reporter_version" {
+  description = "Policy Reporter chart version (OCI tag) for Flux to reconcile."
+  type        = string
+  default     = "3.10.0"
+}

@@ -129,6 +129,18 @@ kubectl get deploy -n default default-archetype-backend-demo \
   -o jsonpath='{.spec.template.metadata.annotations}'
 ```
 
+### Policy Reporter & Dashboard
+
+Policy Reporter is installed as a Flux `HelmRelease` (`kind-cluster/policy-reporter.tf`) and persists policy execution history and violation reports in an embedded SQLite database backed by a persistent volume (`policy-reporter-sqlite-pvc`).
+
+To access the interactive Policy Reporter web dashboard:
+
+```sh
+kubectl port-forward -n policy-reporter svc/policy-reporter-ui 8080:8080
+```
+
+Open `http://localhost:8080` in your browser to view real-time Kyverno policy reports, audit logs, and compliance metrics.
+
 ---
 
 ## Attestation & Provenance Verification

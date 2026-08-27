@@ -14,6 +14,11 @@ spec:
           - resources:
               kinds:
                 - Deployment
+      preconditions:
+        all:
+          - key: "{{ request.object.spec.template.metadata.annotations.\"example.com/image-revision\" || '' }}"
+            operator: NotEquals
+            value: ""
       context:
         - name: imageData
           imageRegistry:
@@ -25,4 +30,4 @@ spec:
             template:
               metadata:
                 annotations:
-                  example.com/image-revision: "{{ imageData.configData.config.Labels.\"org.opencontainers.image.revision\" }}"
+                  example.com/image-revision: "{{ imageData.configData.config.Labels.\"org.opencontainers.image.revision\" || '' }}"
