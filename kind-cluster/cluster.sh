@@ -4,7 +4,7 @@
 # Usage:
 #   ./cluster.sh up       Create the cluster and apply the OpenTofu stack.
 #   ./cluster.sh down     Destroy the OpenTofu stack and the cluster.
-#   ./cluster.sh check    Wait for Flux and cert-manager to become ready and report status.
+#   ./cluster.sh check    Wait for Flux and Kyverno to become ready and report status.
 #
 # The repository is public, and the chart OCIRepository sources under
 # clusters/kind/ assume their GHCR packages are also public, so Flux needs
@@ -35,12 +35,6 @@ check() {
   echo "Waiting for FluxInstance to become Ready..."
   mise exec -- kubectl wait --for=condition=Ready fluxinstance/flux -n flux-system --timeout=180s
 
-  echo "Waiting for cert-manager HelmRelease to become Ready..."
-  mise exec -- kubectl wait --for=condition=Ready helmrelease/cert-manager -n flux-system --timeout=180s
-
-  echo "Waiting for cert-manager pods..."
-  mise exec -- kubectl wait --for=condition=Ready pods --all -n cert-manager --timeout=180s
-
   echo "Waiting for Kyverno HelmRelease to become Ready..."
   mise exec -- kubectl wait --for=condition=Ready helmrelease/kyverno -n flux-system --timeout=180s
 
@@ -50,9 +44,6 @@ check() {
   echo
   echo "--- flux-system pods ---"
   mise exec -- kubectl get pods -n flux-system
-  echo
-  echo "--- cert-manager pods ---"
-  mise exec -- kubectl get pods -n cert-manager
   echo
   echo "--- kyverno pods ---"
   mise exec -- kubectl get pods -n kyverno
