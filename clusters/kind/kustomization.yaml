@@ -1,8 +1,13 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+  - namespace-apps.yaml
   - ocirepository-archetype-backend.yaml
   - ocirepository-archetype-backend-values.yaml
   - artifactgenerator-archetype-backend.yaml
   - helmrelease-archetype-backend.yaml
   - clusterpolicy-disallow-manual-image-revision.yaml
+  - spicedb-operator.yaml
+  - spicedb-cluster.yaml
+  - spicedb-fixture-job.yaml
+  - clusterpolicy-spicedb-authz.yaml

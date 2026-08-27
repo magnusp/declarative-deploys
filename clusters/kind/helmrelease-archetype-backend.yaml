@@ -13,7 +13,7 @@ metadata:
   name: archetype-backend-demo
   namespace: flux-system
 spec:
-  targetNamespace: default
+  targetNamespace: apps
   install:
     createNamespace: true
     remediation:

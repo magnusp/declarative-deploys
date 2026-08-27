@@ -14,6 +14,9 @@ spec:
           - resources:
               kinds:
                 - Deployment
+              namespaceSelector:
+                matchLabels:
+                  governance.platform.io/managed: "true"
       preconditions:
         all:
           - key: "{{ request.object.spec.template.metadata.annotations.\"example.com/image-revision\" || '' }}"

@@ -33,7 +33,10 @@ jobs:
           context: apps-source
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/apps/archetype-backend:${{ github.sha }}
-          labels: org.opencontainers.image.revision=${{ github.sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.vendor=${{ github.actor }}
+            dev.authz.app.deployer=${{ github.triggering_actor }}
 
       - name: Attest image provenance
         uses: actions/attest-build-provenance@v4.2.2

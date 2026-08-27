@@ -72,6 +72,18 @@ This document records the chronological development, architectural trade-offs, a
 
 ---
 
+### Phase 5: Zero-Trust Delivery & SpiceDB ReBAC Authorization
+
+*   **[PR #17](https://github.com/magnusp/declarative-deploys/pull/17)**: *Add SpiceDB operator, in-cluster ephemeral ReBAC authorization, and admission checks*
+    *   **Problem**: In GitOps, cluster controllers execute deployments using generic machine identities, making it difficult to enforce who originally authored or triggered the release without granting engineers direct cluster access.
+    *   **Solution**:
+        1.  **OCI Deployer Attestation & Metadata**: Workflows (`build-app-image.yaml` and `publish-app-values.yaml`) stamp the triggering GitHub actor (`dev.authz.app.deployer`) into the OCI artifact labels.
+        2.  **SpiceDB Operator via Flux**: Installed `authzed/spicedb-operator` using Flux `GitRepository` + `Kustomization` pointing to upstream `./config` with Server-Side Apply.
+        3.  **In-Cluster Ephemeral SpiceDB**: Deployed a `SpiceDBCluster` resource in namespace `authz` and an automated initialization `Job` that seeds the base schema and relationship tuples.
+        4.  **Kyverno Admission Policy**: Added `ClusterPolicy/spicedb-attested-deploy-authz` querying SpiceDB's `/v1/permissions/check` API to assert that the actor has `deploy` permissions before admitting the workload.
+
+---
+
 ## Architectural Decision Summary Matrix
 
 | Decision Area | Previous Approach | Final Approach | Rationale |
@@ -81,4 +93,5 @@ This document records the chronological development, architectural trade-offs, a
 | **Failure Remediation** | `retries: -1` (unbounded) | `retries: 3` + `rollback` | Automatically rolls back to the last stable release on failure; recovers automatically on next valid publish. |
 | **Policy Scope** | Single static `ClusterPolicy` in GitOps | Split: Platform Validation (`ClusterPolicy`) + Chart Mutation (`Policy`) | Guarantees tamper-resistance while making archetype charts self-contained. |
 | **Policy Reporting** | None (in-memory reports only) | Policy Reporter + Persistent SQLite (PVC) + Web UI | Persists policy reports and audit logs locally with zero external database dependencies. |
+| **Deployment Authorization** | Kubernetes RBAC on Flux machine account | Provenance Deployer Identity + SpiceDB ReBAC check | Enforces decentralized zero-trust access control without giving developers cluster credentials. |
 | **In-Cluster TLS** | `cert-manager` installed via Flux | Removed | Reduced cluster surface area and cut standup time in half. |

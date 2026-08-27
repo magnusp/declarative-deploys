@@ -1,0 +1,8 @@
+# Dedicated application workspace namespace for showcase workloads.
+# Labelled with governance.platform.io/managed: "true" to opt-in to Kyverno policies.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apps
+  labels:
+    governance.platform.io/managed: "true"
