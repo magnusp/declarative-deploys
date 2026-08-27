@@ -85,7 +85,8 @@ To ship a change to the application, from the GitHub Actions tab:
    the run) and run **`Bump archetype-backend values`** with `image_tag` set
    to that SHA.
 4. That's the deploy. Flux picks up the new `archetype-backend-values` artifact
-   on its own — no further action needed. Confirm it rolled out:
+   on its own within its polling intervals (see note below) — no commit or
+   manual apply needed. Confirm it rolled out:
 
    ```sh
    kubectl get helmrelease -n flux-system archetype-backend-demo
@@ -99,6 +100,24 @@ If you need to change something other than the image (replica count, chart
 version, etc.), edit `apps-source/values.yaml` directly before step 3 — the
 values workflow packages whatever is in that file at run time, it doesn't
 generate it from scratch.
+
+> **Known limitation — no event-driven reconcile.** helm-controller does not
+> watch the `archetype-backend-values` `ConfigMap` (referenced via
+> `valuesFrom`) for changes; it only re-evaluates values on its own
+> `HelmRelease.spec.interval` (`clusters/kind/helmrelease-archetype-backend.yaml`,
+> currently `10s`, so the practical worst-case lag after publishing is roughly
+> that interval plus the `OCIRepository`/`Kustomization` polling intervals
+> upstream of it, on the order of ~1-2 minutes). If you need the deploy to
+> happen the instant the values artifact is published — no polling lag at
+> all — you'd need to add a Flux `Receiver` (notification-controller) that the
+> `publish-app-values.yaml` workflow calls at the end via webhook to force an
+> immediate reconciliation. That isn't set up here yet; until it is, treat
+> "Flux picks it up on its own" as "within a couple of minutes," not
+> "instantly," and if you need it sooner, manually run:
+>
+> ```sh
+> flux reconcile helmrelease archetype-backend-demo -n flux-system
+> ```
 
 ## Kyverno policies
 
