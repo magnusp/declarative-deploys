@@ -35,9 +35,10 @@ resource "kubectl_manifest" "flux_instance" {
         "kustomize-controller",
         "helm-controller",
         "notification-controller",
+        "source-watcher",
       ]
       cluster = {
-        multitenant = false
+        multitenant   = false
         networkPolicy = true
       }
       # The repository is public, so no pullSecret is needed to clone it.

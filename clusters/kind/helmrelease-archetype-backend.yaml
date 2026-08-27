@@ -1,17 +1,7 @@
 # Instance of the archetype-backend chart for the apps-source/ simulated
-# application. Its values come entirely from the archetype-backend-values
-# ConfigMap (materialized from the apps-source/ OCI artifact) rather than
-# being inlined here — that's what makes publishing new values a deploy.
-#
-# No dependsOn: HelmRelease.spec.dependsOn can only reference other
-# HelmReleases, not the Kustomization that creates the ConfigMap below.
-# Until that ConfigMap exists, this HelmRelease simply fails and retries
-# on its own interval.
-#
-# interval is short (10s) because helm-controller does not watch
-# valuesFrom ConfigMaps/Secrets for changes — it only re-reconciles on this
-# interval or when chartRef changes. Without a short interval, a new values
-# artifact could sit unapplied for up to `interval` before it's picked up.
+# application. Its chart and values are composed directly into an ExternalArtifact
+# by source-watcher (ArtifactGenerator), providing immediate event-driven reconciliation
+# whenever either the chart version or the values artifact changes.
 #
 # install/upgrade remediation retries are unbounded (-1): with the default
 # bounded retry count, a single bad publish (e.g. an image tag that doesn't
@@ -32,11 +22,8 @@ spec:
   upgrade:
     remediation:
       retries: -1
-  interval: 10s
+  interval: 10m
   chartRef:
-    kind: OCIRepository
-    name: archetype-backend
-  valuesFrom:
-    - kind: ConfigMap
-      name: archetype-backend-values
-      valuesKey: values.yaml
+    kind: ExternalArtifact
+    name: archetype-backend-demo
+
