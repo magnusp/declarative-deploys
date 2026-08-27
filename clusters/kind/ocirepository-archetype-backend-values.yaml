@@ -1,7 +1,6 @@
 # Tracks the apps-source/ payload published by
-# .github/workflows/publish-app-values.yaml — a ConfigMapGenerator
-# kustomization wrapping the application's chart values. The mutable
-# `latest` tag plus a short interval is what makes this a "gitops version
+# .github/workflows/publish-app-values.yaml containing values.yaml. The mutable
+# `latest` tag plus source-watcher artifact generation is what makes this a "gitops version
 # bump": publishing a new artifact is the deploy, no git commit required.
 apiVersion: source.toolkit.fluxcd.io/v1beta2
 kind: OCIRepository

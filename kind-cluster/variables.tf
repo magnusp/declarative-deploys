@@ -13,13 +13,13 @@ variable "kubernetes_version" {
 variable "flux_operator_version" {
   description = "Version of the controlplane/flux-operator Helm chart to install from OCI."
   type        = string
-  default     = "0.19.0"
+  default     = "0.58.1"
 }
 
 variable "flux_version" {
   description = "Version of Flux the FluxInstance should reconcile."
   type        = string
-  default     = "2.4.0"
+  default     = "2.7.5"
 }
 
 variable "flux_git_repository" {

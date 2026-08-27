@@ -58,20 +58,20 @@ be deployed. Two workflows drive it:
   attesting build provenance for the pushed digest.
 * **`Bump archetype-backend values`**
   (`.github/workflows/publish-app-values.yaml`) — takes an `image_tag` input,
-  writes it into `apps-source/values.yaml`, and pushes the whole `apps-source/`
-  directory (including its `kustomization.yaml`, which turns `values.yaml` into
-  a `ConfigMap`) as an OCI artifact to
+  writes it into `apps-source/values.yaml`, and pushes the `apps-source/`
+  directory (containing `values.yaml`) as an OCI artifact to
   `ghcr.io/magnusp/apps/archetype-backend-values:latest`, also attested.
 
 This is the "gitops version bump": `latest` is a mutable tag, so publishing a
 new values artifact *is* the deploy. Flux's `archetype-backend-values`
 `OCIRepository` (`clusters/kind/ocirepository-archetype-backend-values.yaml`)
-re-pulls it every minute; its paired `Kustomization`
-(`clusters/kind/kustomization-archetype-backend-values.yaml`) rebuilds the
-`ConfigMap`; and the `archetype-backend-demo` `HelmRelease` reads it via
-`valuesFrom`, upgrading automatically — no commit against `clusters/kind/`
-required. In a real setup you'd typically chain the two workflows (build image,
-then bump values with that image's tag) rather than run them independently.
+re-pulls it; the `ArtifactGenerator`
+(`clusters/kind/artifactgenerator-archetype-backend.yaml`) deep-merges the base
+Helm chart and the application `values.yaml` into an `ExternalArtifact`; and the
+`archetype-backend-demo` `HelmRelease` watches this artifact directly, upgrading
+immediately — no commit against `clusters/kind/` required. In a real setup you'd
+typically chain the two workflows (build image, then bump values with that image's
+tag) rather than run them independently.
 
 ### Publishing a new version (app team runbook)
 
@@ -85,8 +85,8 @@ To ship a change to the application, from the GitHub Actions tab:
    the run) and run **`Bump archetype-backend values`** with `image_tag` set
    to that SHA.
 4. That's the deploy. Flux picks up the new `archetype-backend-values` artifact
-   on its own within its polling intervals (see note below) — no commit or
-   manual apply needed. Confirm it rolled out:
+   on its own, composes the `ExternalArtifact`, and immediately triggers the
+   `HelmRelease` upgrade — no commit or manual apply needed. Confirm it rolled out:
 
    ```sh
    kubectl get helmrelease -n flux-system archetype-backend-demo
@@ -100,24 +100,6 @@ If you need to change something other than the image (replica count, chart
 version, etc.), edit `apps-source/values.yaml` directly before step 3 — the
 values workflow packages whatever is in that file at run time, it doesn't
 generate it from scratch.
-
-> **Known limitation — no event-driven reconcile.** helm-controller does not
-> watch the `archetype-backend-values` `ConfigMap` (referenced via
-> `valuesFrom`) for changes; it only re-evaluates values on its own
-> `HelmRelease.spec.interval` (`clusters/kind/helmrelease-archetype-backend.yaml`,
-> currently `10s`, so the practical worst-case lag after publishing is roughly
-> that interval plus the `OCIRepository`/`Kustomization` polling intervals
-> upstream of it, on the order of ~1-2 minutes). If you need the deploy to
-> happen the instant the values artifact is published — no polling lag at
-> all — you'd need to add a Flux `Receiver` (notification-controller) that the
-> `publish-app-values.yaml` workflow calls at the end via webhook to force an
-> immediate reconciliation. That isn't set up here yet; until it is, treat
-> "Flux picks it up on its own" as "within a couple of minutes," not
-> "instantly," and if you need it sooner, manually run:
->
-> ```sh
-> flux reconcile helmrelease archetype-backend-demo -n flux-system
-> ```
 
 ## Kyverno policies
 
