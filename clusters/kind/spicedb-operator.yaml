@@ -24,3 +24,14 @@ spec:
   sourceRef:
     kind: GitRepository
     name: spicedb-operator
+  patches:
+    - patch: |
+        - op: replace
+          path: /spec/template/spec/containers/0/args
+          value:
+            - run
+            - -v=4
+            - --crd=false
+      target:
+        kind: Deployment
+        name: spicedb-operator

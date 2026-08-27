@@ -48,8 +48,8 @@ check() {
   mise exec -- kubectl wait --for=condition=Ready pods --all -n policy-reporter --timeout=180s
 
   if mise exec -- kubectl get namespace authz > /dev/null 2>&1; then
-    echo "Waiting for SpiceDB pods in authz namespace..."
-    mise exec -- kubectl wait --for=condition=Ready pods --all -n authz --timeout=180s || true
+    echo "Waiting for SpiceDB deployment in authz namespace..."
+    mise exec -- kubectl wait --for=condition=Available deployment/spicedb-spicedb -n authz --timeout=180s || true
   fi
 
   echo

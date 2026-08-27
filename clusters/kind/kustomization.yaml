@@ -8,6 +8,7 @@ resources:
   - helmrelease-archetype-backend.yaml
   - clusterpolicy-disallow-manual-image-revision.yaml
   - spicedb-operator.yaml
+  - spicedb-operator-rbac.yaml
   - spicedb-cluster.yaml
   - spicedb-fixture-job.yaml
   - clusterpolicy-spicedb-authz.yaml
