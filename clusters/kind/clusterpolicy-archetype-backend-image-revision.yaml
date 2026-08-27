@@ -17,7 +17,7 @@ spec:
               namespaces:
                 - default
               names:
-                - archetype-backend-demo
+                - default-archetype-backend-demo
       context:
         - name: imageData
           imageRegistry:

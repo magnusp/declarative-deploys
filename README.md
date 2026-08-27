@@ -107,7 +107,9 @@ same OCIRepository/HelmRelease pattern as cert-manager. Its `ClusterPolicy`
 objects live under `clusters/kind/` alongside the workloads they target.
 
 `clusters/kind/clusterpolicy-archetype-backend-image-revision.yaml` is a first
-test policy: it mutates the `archetype-backend-demo` Deployment, reading the
+test policy: it mutates the `default-archetype-backend-demo` Deployment
+(Flux names the underlying Helm release `<targetNamespace>-<HelmRelease name>`
+when a release name isn't set explicitly), reading the
 `org.opencontainers.image.revision` OCI label off its own container image (via
 Kyverno's `imageRegistry` context) and writing it onto the pod template as the
 `example.com/image-revision` annotation. `build-app-image.yaml` sets that label
@@ -115,7 +117,7 @@ to the commit SHA at build time, so once Kyverno mutates a rollout you can
 confirm it landed with:
 
 ```sh
-kubectl get deploy -n default archetype-backend-demo \
+kubectl get deploy -n default default-archetype-backend-demo \
   -o jsonpath='{.spec.template.metadata.annotations}'
 ```
 
