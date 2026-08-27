@@ -1,0 +1,29 @@
+# Platform validation policy: ensures developers cannot manually supply
+# or forge the example.com/image-revision annotation on Deployments.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-manual-image-revision
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: check-no-manual-annotation
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+      preconditions:
+        all:
+          - key: "{{ request.object.spec.template.metadata.annotations.\"example.com/image-revision\" || '' }}"
+            operator: NotEquals
+            value: ""
+      validate:
+        message: "The example.com/image-revision annotation is managed exclusively by platform policies and cannot be set directly."
+        deny:
+          conditions:
+            all:
+              - key: "{{ request.userInfo.username }}"
+                operator: NotEquals
+                value: "system:serviceaccount:kyverno:kyverno-admission-controller"
