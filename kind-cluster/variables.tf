@@ -19,7 +19,7 @@ variable "flux_operator_version" {
 variable "flux_version" {
   description = "Version of Flux the FluxInstance should reconcile."
   type        = string
-  default     = "2.7.5"
+  default     = "2.9.4"
 }
 
 variable "flux_git_repository" {

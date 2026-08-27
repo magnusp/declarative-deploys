@@ -8,7 +8,7 @@ spec:
   interval: 2h
   url: https://github.com/authzed/spicedb-operator
   ref:
-    tag: v1.9.0
+    tag: v1.26.0
 ---
 # Reconciles the SpiceDB Operator CRDs and controller with Server-Side Apply.
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -24,14 +24,3 @@ spec:
   sourceRef:
     kind: GitRepository
     name: spicedb-operator
-  patches:
-    - patch: |
-        - op: replace
-          path: /spec/template/spec/containers/0/args
-          value:
-            - run
-            - -v=4
-            - --crd=false
-      target:
-        kind: Deployment
-        name: spicedb-operator
