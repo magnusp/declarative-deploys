@@ -30,11 +30,21 @@ jobs:
       - name: Set up mise-managed tools
         uses: jdx/mise-action@v4.3.0
 
-      - name: Log in to GitHub Container Registry
+      - name: Log in to GitHub Container Registry (Helm)
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io \
             --username "${{ github.actor }}" \
             --password-stdin
+
+      # actions/attest-build-provenance's push-to-registry reads standard
+      # Docker credentials (~/.docker/config.json), a separate store from
+      # Helm's own registry login above — both are needed.
+      - name: Log in to GitHub Container Registry (Docker)
+        uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Package chart
         run: |
