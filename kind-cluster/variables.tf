@@ -40,12 +40,6 @@ variable "flux_git_path" {
   default     = "clusters/kind"
 }
 
-variable "cert_manager_version" {
-  description = "cert-manager chart version (OCI tag) for Flux to reconcile."
-  type        = string
-  default     = "v1.16.2"
-}
-
 variable "kyverno_version" {
   description = "Kyverno chart version (OCI tag) for Flux to reconcile."
   type        = string
