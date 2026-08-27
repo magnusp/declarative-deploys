@@ -3,11 +3,10 @@
 # by source-watcher (ArtifactGenerator), providing immediate event-driven reconciliation
 # whenever either the chart version or the values artifact changes.
 #
-# install/upgrade remediation retries are unbounded (-1): with the default
-# bounded retry count, a single bad publish (e.g. an image tag that doesn't
-# exist yet) permanently stalls the HelmRelease — confirmed live, it stopped
-# retrying even as `interval` kept ticking, and a later good publish was
-# silently ignored until a manual `flux reconcile` broke it out of Stalled.
+# Remediation strategy: bounded retries (3) with automatic rollback on upgrade failure.
+# When a new valid values/chart artifact is published, source-watcher generates
+# a new ExternalArtifact revision, which automatically resets failure state and
+# triggers a new release upgrade.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -18,10 +17,12 @@ spec:
   install:
     createNamespace: true
     remediation:
-      retries: -1
+      retries: 3
   upgrade:
     remediation:
-      retries: -1
+      retries: 3
+      strategy: rollback
+      remediateLastFailure: true
   interval: 10m
   chartRef:
     kind: ExternalArtifact

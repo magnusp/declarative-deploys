@@ -6,7 +6,7 @@
 # package is set to public visibility on GHCR (a separate setting from repo
 # visibility, only available after the first version is published). Until
 # that's done, reconciliation will fail with an auth error.
-apiVersion: source.toolkit.fluxcd.io/v1beta2
+apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
   name: archetype-backend
