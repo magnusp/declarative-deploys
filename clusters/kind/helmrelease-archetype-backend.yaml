@@ -1,0 +1,21 @@
+# Example instance of the archetype-backend chart, standing in for a real
+# development-team workload. Swap image.repository/tag for an actual service
+# once one exists.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: archetype-backend-demo
+  namespace: flux-system
+spec:
+  targetNamespace: default
+  install:
+    createNamespace: true
+  interval: 10m
+  chartRef:
+    kind: OCIRepository
+    name: archetype-backend
+  values:
+    replicas: 1
+    image:
+      repository: nginx
+      tag: "1.27"

@@ -1,0 +1,13 @@
+# Tracks the archetype-backend chart published to GHCR by
+# .github/workflows/publish-chart.yaml. Bump `ref.tag` after publishing a new
+# chart version.
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: OCIRepository
+metadata:
+  name: archetype-backend
+  namespace: flux-system
+spec:
+  interval: 10m
+  url: oci://ghcr.io/fortnox-lab/charts/archetype-backend
+  ref:
+    tag: 0.1.0

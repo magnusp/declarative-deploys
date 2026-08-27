@@ -6,6 +6,9 @@ Local kind cluster bootstrapped with Flux, and the Helm charts it's meant to run
   (via the `flux-operator` OCI chart) plus cert-manager (as a Flux `HelmRelease`).
 * `charts/` — Helm charts owned by platform engineering, consumed by development
   teams, published to GitHub Packages (GHCR) via a manual GitHub Actions workflow.
+* `clusters/kind/` — the manifests Flux reconciles onto the cluster: an
+  `OCIRepository`/`HelmRelease` pair per workload, sourced straight from this git
+  repository (see `flux_git_repository`/`flux_git_path` in `kind-cluster/variables.tf`).
 
 ## Standing up, checking, and tearing down the cluster
 
@@ -25,6 +28,11 @@ cd kind-cluster
 
 `check` and `up` both read the cluster's kubeconfig from OpenTofu state to talk to
 the cluster; they don't require you to export `KUBECONFIG` yourself.
+
+Once Flux is running, it reconciles `clusters/kind/` from this repository's `main`
+branch. `clusters/kind/ocirepository-archetype-backend.yaml` tracks a chart version
+published to GHCR (see below) — it can only reconcile successfully once that
+version has actually been published.
 
 ## Verifying attestations of published charts
 

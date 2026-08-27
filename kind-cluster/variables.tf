@@ -1,7 +1,7 @@
 variable "cluster_name" {
   description = "Name of the kind cluster."
   type        = string
-  default     = "nextgen"
+  default     = "kind"
 }
 
 variable "kubernetes_version" {
@@ -25,7 +25,7 @@ variable "flux_version" {
 variable "flux_git_repository" {
   description = "Optional git repository URL to bootstrap Flux against. Leave empty to manage sync purely via OCIRepository/HelmRelease objects applied later."
   type        = string
-  default     = ""
+  default     = "https://github.com/fortnox-lab/declarative-deploys"
 }
 
 variable "flux_git_branch" {
@@ -37,7 +37,7 @@ variable "flux_git_branch" {
 variable "flux_git_path" {
   description = "Path within the git repository containing the cluster's Flux manifests."
   type        = string
-  default     = "clusters/nextgen"
+  default     = "clusters/kind"
 }
 
 variable "cert_manager_version" {
