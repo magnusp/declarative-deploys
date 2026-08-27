@@ -3,3 +3,5 @@ kind: Kustomization
 resources:
   - ocirepository-archetype-backend.yaml
   - helmrelease-archetype-backend.yaml
+  - ocirepository-archetype-backend-values.yaml
+  - kustomization-archetype-backend-values.yaml

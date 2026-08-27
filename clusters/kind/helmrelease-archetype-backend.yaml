@@ -1,6 +1,7 @@
-# Example instance of the archetype-backend chart, standing in for a real
-# development-team workload. Swap image.repository/tag for an actual service
-# once one exists.
+# Instance of the archetype-backend chart for the apps-source/ simulated
+# application. Its values come entirely from the archetype-backend-values
+# ConfigMap (materialized from the apps-source/ OCI artifact) rather than
+# being inlined here — that's what makes publishing new values a deploy.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -14,8 +15,9 @@ spec:
   chartRef:
     kind: OCIRepository
     name: archetype-backend
-  values:
-    replicas: 1
-    image:
-      repository: nginx
-      tag: "1.27"
+  dependsOn:
+    - name: archetype-backend-values
+  valuesFrom:
+    - kind: ConfigMap
+      name: archetype-backend-values
+      valuesKey: values.yaml

@@ -1,2 +1,4 @@
 [tools]
 helm = "latest"
+yq = "latest"
+flux2 = "latest"
