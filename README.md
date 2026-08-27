@@ -103,14 +103,13 @@ generate it from scratch.
 
 ## Kyverno policies
 
-Kyverno is installed as a Flux `HelmRelease` (`kind-cluster/kyverno.tf`). Its `ClusterPolicy`
-objects live under `clusters/kind/` alongside the workloads they target.
+Kyverno is installed as a Flux `HelmRelease` (`kind-cluster/kyverno.tf`).
 
-`clusters/kind/clusterpolicy-archetype-backend-image-revision.yaml` is a first
-test policy: it mutates the `default-archetype-backend-demo` Deployment
-(Flux names the underlying Helm release `<targetNamespace>-<HelmRelease name>`
-when a release name isn't set explicitly), reading the
-`org.opencontainers.image.revision` OCI label off its own container image (via
+
+The archetype Helm chart (`charts/archetype-backend/templates/policy.yaml`) includes
+a namespaced Kyverno `Policy` that automatically accompanies every deployed instance
+of the archetype. It mutates the instance's `Deployment`, reading the
+`org.opencontainers.image.revision` OCI label off its container image (via
 Kyverno's `imageRegistry` context) and writing it onto the pod template as the
 `example.com/image-revision` annotation. `build-app-image.yaml` sets that label
 to the commit SHA at build time, so once Kyverno mutates a rollout you can

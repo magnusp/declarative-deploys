@@ -5,4 +5,3 @@ resources:
   - ocirepository-archetype-backend-values.yaml
   - artifactgenerator-archetype-backend.yaml
   - helmrelease-archetype-backend.yaml
-  - clusterpolicy-archetype-backend-image-revision.yaml
