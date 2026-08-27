@@ -31,39 +31,16 @@ the cluster; they don't require you to export `KUBECONFIG` yourself.
 
 Once Flux is running, it reconciles `clusters/kind/` from this repository's `main`
 branch. `clusters/kind/ocirepository-archetype-backend.yaml` tracks a chart version
-published to GHCR (see below) — it can only reconcile successfully once that
-version has actually been published.
+published to GHCR — reconciliation requires both that the version has actually
+been published (see below) and that its GHCR package is set to public
+visibility (a separate, package-level setting only available after the first
+publish; go to the package's own settings page on GHCR to flip it).
 
-## Giving Flux a GitHub token
-
-Flux needs a GitHub credential for two things: cloning this repository (the
-`GitRepository` source) and pulling chart packages from GHCR (each
-`OCIRepository` source). These need two different kinds of token, because
-**fine-grained PATs cannot authenticate to GHCR** — GitHub hasn't shipped a
-`packages` permission for them yet, only for classic tokens. So:
-
-* **GITHUB_TOKEN** — a fine-grained PAT scoped to this repository with
-  **Contents: Read-only**. Used for the git clone.
-* **GHCR_TOKEN** — a **classic** PAT with the **`read:packages`** scope
-  (classic tokens aren't repo-scoped, so this grants read access to all your
-  packages). Used for GHCR pulls.
-
-Both read from secrets in `flux-system` that `cluster.sh` applies for
-you — they are not managed by Terraform, since a token shouldn't live in
-state or in a `.tf` file.
-
-```sh
-cd kind-cluster
-export GITHUB_USERNAME=<your-github-username>
-export GITHUB_TOKEN=<the-fine-grained-pat>
-export GHCR_TOKEN=<the-classic-pat>
-./cluster.sh secrets
-```
-
-This creates `flux-git-auth` (referenced by the `FluxInstance`'s
-`sync.pullSecret`) and `ghcr-pull` (referenced by each `OCIRepository`'s
-`secretRef`) in the `flux-system` namespace. Re-run it whenever a token is
-rotated.
+Flux needs no credentials for any of this: the repository is public, and every
+source under `clusters/kind/` assumes its target (git or GHCR package) is
+public too. If you ever add a source that isn't public, apply its pull secret
+manually (`kubectl create secret ... -n flux-system`, referenced via that
+source's `secretRef`/`pullSecret`) rather than committing a credential here.
 
 ## Verifying attestations of published charts
 
@@ -74,8 +51,8 @@ workflow (and not pushed by hand), use the GitHub CLI:
 
 ```sh
 gh attestation verify \
-  oci://ghcr.io/fortnox-lab/charts/<chart>:<version> \
-  --owner fortnox-lab
+  oci://ghcr.io/magnusp/charts/<chart>:<version> \
+  --owner magnusp
 ```
 
 This confirms the artifact's digest matches a provenance attestation signed by
@@ -87,7 +64,7 @@ You can also list all attestations for a given digest without verifying:
 
 ```sh
 gh attestation verify \
-  oci://ghcr.io/fortnox-lab/charts/<chart>:<version> \
-  --owner fortnox-lab \
+  oci://ghcr.io/magnusp/charts/<chart>:<version> \
+  --owner magnusp \
   --format json | jq
 ```

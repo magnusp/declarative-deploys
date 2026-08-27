@@ -25,7 +25,7 @@ variable "flux_version" {
 variable "flux_git_repository" {
   description = "Optional git repository URL to bootstrap Flux against. Leave empty to manage sync purely via OCIRepository/HelmRelease objects applied later."
   type        = string
-  default     = "https://github.com/fortnox-lab/declarative-deploys"
+  default     = "https://github.com/magnusp/declarative-deploys"
 }
 
 variable "flux_git_branch" {

@@ -1,6 +1,11 @@
 # Tracks the archetype-backend chart published to GHCR by
 # .github/workflows/publish-chart.yaml. Bump `ref.tag` after publishing a new
 # chart version.
+#
+# No secretRef: this assumes the ghcr.io/magnusp/charts/archetype-backend
+# package is set to public visibility on GHCR (a separate setting from repo
+# visibility, only available after the first version is published). Until
+# that's done, reconciliation will fail with an auth error.
 apiVersion: source.toolkit.fluxcd.io/v1beta2
 kind: OCIRepository
 metadata:
@@ -8,8 +13,6 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  url: oci://ghcr.io/fortnox-lab/charts/archetype-backend
+  url: oci://ghcr.io/magnusp/charts/archetype-backend
   ref:
     tag: 0.1.0
-  secretRef:
-    name: ghcr-pull
