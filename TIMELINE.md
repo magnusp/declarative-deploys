@@ -66,6 +66,9 @@ This document records the chronological development, architectural trade-offs, a
         *   Upgraded all `OCIRepository` manifests from deprecated `v1beta2` to `source.toolkit.fluxcd.io/v1`.
 *   **[PR #14](https://github.com/magnusp/declarative-deploys/pull/14)**: *Update README to align with Google documentation style guide*
     *   **Context**: Cleaned up documentation, added architecture diagrams, and aligned with standard technical writing guidelines.
+*   **[PR #16](https://github.com/magnusp/declarative-deploys/pull/16)**: *Add Policy Reporter with persistent SQLite storage and Web UI*
+    *   **Context**: Needed persistent storage for Kyverno policy execution events, audit logs, and graphical reports.
+    *   **Decision**: Installed Policy Reporter via Flux `HelmRelease` from `https://kyverno.github.io/policy-reporter`, configured with a `PersistentVolumeClaim` backed by kind's `local-path` provisioner for embedded SQLite event persistence and enabled the Policy Reporter UI.
 
 ---
 
@@ -77,4 +80,5 @@ This document records the chronological development, architectural trade-offs, a
 | **Helm Polling Interval** | `10s` (tight loop workaround) | `10m` | Updates are triggered immediately by `ExternalArtifact` revision events. |
 | **Failure Remediation** | `retries: -1` (unbounded) | `retries: 3` + `rollback` | Automatically rolls back to the last stable release on failure; recovers automatically on next valid publish. |
 | **Policy Scope** | Single static `ClusterPolicy` in GitOps | Split: Platform Validation (`ClusterPolicy`) + Chart Mutation (`Policy`) | Guarantees tamper-resistance while making archetype charts self-contained. |
+| **Policy Reporting** | None (in-memory reports only) | Policy Reporter + Persistent SQLite (PVC) + Web UI | Persists policy reports and audit logs locally with zero external database dependencies. |
 | **In-Cluster TLS** | `cert-manager` installed via Flux | Removed | Reduced cluster surface area and cut standup time in half. |
