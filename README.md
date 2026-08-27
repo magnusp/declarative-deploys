@@ -1,146 +1,149 @@
-# declarative-deploys
+# Declarative Deploys Showcase
 
-Local kind cluster bootstrapped with Flux, and the Helm charts it's meant to run.
+A demonstration of decoupled platform engineering and application development workflows using Flux CD, OCI artifacts, and Kyverno on a local kind cluster.
 
-* `kind-cluster/` — OpenTofu stack that creates the kind cluster and installs Flux
-  (via the `flux-operator` OCI chart) plus Kyverno (as a Flux
-  `HelmRelease`).
-* `charts/` — Helm charts owned by platform engineering, consumed by development
-  teams, published to GitHub Packages (GHCR) via a manual GitHub Actions workflow.
-* `clusters/kind/` — the manifests Flux reconciles onto the cluster: an
-  `OCIRepository`/`HelmRelease` pair per workload, sourced straight from this git
-  repository (see `flux_git_repository`/`flux_git_path` in `kind-cluster/variables.tf`).
-* `apps-source/` — a simulated application repository: an nginx-based image plus
-  the `archetype-backend` values it should be deployed with, published by their
-  own GitHub Actions workflows (see below).
+## Overview
 
-## Standing up, checking, and tearing down the cluster
+This repository demonstrates a separation of concerns between **platform teams** and **application teams**:
 
-All cluster lifecycle commands go through `kind-cluster/cluster.sh`, which wraps
-the OpenTofu stack. Run it from the `kind-cluster/` directory:
+*   **Platform Engineering**: Owns archetype Helm charts (`charts/`) and cluster-wide governance policies. Charts are packaged and published to GitHub Container Registry (GHCR) with SemVer tags.
+*   **Application Development**: Owns application source code and deployment parameters (`apps-source/values.yaml`). Application teams deploy by publishing container images and `values.yaml` artifacts to GHCR using a mutable `latest` tag without making Git commits to the cluster repository.
+*   **Cluster Infrastructure**: Provisions a local kind cluster and bootstraps Flux CD and Kyverno using OpenTofu (`kind-cluster/`).
+*   **Reconciliation & Composition**: Flux `source-watcher` composes the platform base chart and developer values into an `ExternalArtifact`, triggering immediate event-driven upgrades in `helm-controller` (`clusters/kind/`).
+
+```
+┌────────────────────────────────────────────────────────┐
+│ Platform Concern                                       │
+│ Base Chart (GHCR: oci://.../archetype-backend:0.1.1)   │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│ Flux Artifact Composition (source-watcher)             │
+│ ArtifactGenerator ───► ExternalArtifact (Merged Chart) │
+└──────────────────────────▲─────────────────────────────┘
+                           │
+┌──────────────────────────┴─────────────────────────────┐
+│ Developer Concern                                      │
+│ App Values (GHCR: oci://.../values:latest)             │
+└────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Directory Structure
+
+*   [`kind-cluster/`](kind-cluster/): OpenTofu configuration that creates the kind cluster and installs the `flux-operator` and Kyverno.
+*   [`charts/`](charts/): Platform-owned Helm charts consumed by application teams.
+*   [`clusters/kind/`](clusters/kind/): Flux manifests defining the continuous delivery pipeline: `OCIRepository`, `ArtifactGenerator`, `HelmRelease`, and governance policies.
+*   [`apps-source/`](apps-source/): Simulated application repository containing the container build files and environment values (`values.yaml`).
+*   [`.github/workflows/`](.github/workflows/): GitHub Actions workflows for publishing charts, images, and values artifacts with build provenance attestations.
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+Ensure you have installed the required CLI tools managed by `mise`:
+
+```sh
+mise install
+```
+
+This installs:
+*   `kind`
+*   `opentofu`
+*   `helm`
+*   `kubectl`
+*   `yq`
+*   `flux`
+
+### Cluster Lifecycle
+
+All cluster lifecycle commands are managed by [`kind-cluster/cluster.sh`](kind-cluster/cluster.sh):
 
 ```sh
 cd kind-cluster
 
-./cluster.sh up      # create the kind cluster, install Flux + Kyverno, then check
-./cluster.sh check   # wait for Flux and Kyverno to report Ready, print pod status
-./cluster.sh down    # destroy the OpenTofu stack and the kind cluster
+./cluster.sh up      # Create the kind cluster, bootstrap Flux and Kyverno, and verify health
+./cluster.sh check   # Check pod readiness and print component status
+./cluster.sh down    # Destroy the OpenTofu stack and delete the kind cluster
 ```
 
-`up` requires the tools declared in `kind-cluster/mise.toml` (`kind`, `opentofu`,
-`helm`, `kubectl`, `yq`) — install them first with `mise install`.
+> **Note**: Both `up` and `check` automatically configure `KUBECONFIG` from the OpenTofu state. You do not need to export `KUBECONFIG` manually.
 
-`check` and `up` both read the cluster's kubeconfig from OpenTofu state to talk to
-the cluster; they don't require you to export `KUBECONFIG` yourself.
+---
 
-Once Flux is running, it reconciles `clusters/kind/` from this repository's `main`
-branch. `clusters/kind/ocirepository-archetype-backend.yaml` tracks a chart version
-published to GHCR — reconciliation requires both that the version has actually
-been published (see below) and that its GHCR package is set to public
-visibility (a separate, package-level setting only available after the first
-publish; go to the package's own settings page on GHCR to flip it).
+## Application Delivery Workflow
 
-Flux needs no credentials for any of this: the repository is public, and every
-source under `clusters/kind/` assumes its target (git or GHCR package) is
-public too. If you ever add a source that isn't public, apply its pull secret
-manually (`kubectl create secret ... -n flux-system`, referenced via that
-source's `secretRef`/`pullSecret`) rather than committing a credential here.
+The application team delivers updates independently of the platform GitOps repository.
 
-## Simulated application: apps-source/
+### Workflows
 
-`apps-source/` stands in for a development team's own repository. It builds an
-image on top of `nginx` with a custom `index.html`, and carries the
-`archetype-backend` chart values (`values.yaml`) that describe how it wants to
-be deployed. Two workflows drive it:
+1.  **Build app image** (`.github/workflows/build-app-image.yaml`):
+    *   Builds the container image from `apps-source/`.
+    *   Pushes `ghcr.io/magnusp/apps/archetype-backend:<commit-sha>`.
+    *   Stamps the OCI config label `org.opencontainers.image.revision` with the commit SHA.
+    *   Generates a GitHub build provenance attestation.
+2.  **Bump archetype-backend values** (`.github/workflows/publish-app-values.yaml`):
+    *   Updates `image.tag` in `apps-source/values.yaml` to the target commit SHA.
+    *   Pushes `apps-source/` as an OCI artifact to `ghcr.io/magnusp/apps/archetype-backend-values:latest`.
+    *   Generates a GitHub build provenance attestation.
 
-* **`Build app image`** (`.github/workflows/build-app-image.yaml`) — builds
-  `apps-source/` and pushes `ghcr.io/magnusp/apps/archetype-backend:<commit-sha>`,
-  attesting build provenance for the pushed digest.
-* **`Bump archetype-backend values`**
-  (`.github/workflows/publish-app-values.yaml`) — takes an `image_tag` input,
-  writes it into `apps-source/values.yaml`, and pushes the `apps-source/`
-  directory (containing `values.yaml`) as an OCI artifact to
-  `ghcr.io/magnusp/apps/archetype-backend-values:latest`, also attested.
+### Releasing an Application Update (Runbook)
 
-This is the "gitops version bump": `latest` is a mutable tag, so publishing a
-new values artifact *is* the deploy. Flux's `archetype-backend-values`
-`OCIRepository` (`clusters/kind/ocirepository-archetype-backend-values.yaml`)
-re-pulls it; the `ArtifactGenerator`
-(`clusters/kind/artifactgenerator-archetype-backend.yaml`) deep-merges the base
-Helm chart and the application `values.yaml` into an `ExternalArtifact`; and the
-`archetype-backend-demo` `HelmRelease` watches this artifact directly, upgrading
-immediately — no commit against `clusters/kind/` required. In a real setup you'd
-typically chain the two workflows (build image, then bump values with that image's
-tag) rather than run them independently.
+Follow these steps to deploy an application change:
 
-### Publishing a new version (app team runbook)
+1.  **Merge changes** to the main application branch.
+2.  **Trigger `Build app image`**:
+    *   Navigate to **Actions** > **Build app image** and run the workflow on your target commit.
+3.  **Trigger `Bump archetype-backend values`**:
+    *   Run the workflow with the `image_tag` input set to the commit SHA built in Step 2.
+4.  **Verify Deployment**:
+    *   Flux automatically detects the new values artifact digest, generates a new `ExternalArtifact`, and reconciles the `HelmRelease`:
 
-To ship a change to the application, from the GitHub Actions tab:
+    ```sh
+    kubectl get helmrelease -n flux-system archetype-backend-demo
+    kubectl get pods -n default -l app.kubernetes.io/instance=archetype-backend-demo
+    kubectl get deploy -n default default-archetype-backend-demo \
+      -o jsonpath='{.items[0].spec.template.spec.containers[0].image}'
+    ```
 
-1. **Merge your change** to `main` (or whichever branch/commit you want to
-   build — the image is tagged with that commit's SHA either way).
-2. Run **`Build app image`** on that commit. No inputs — it always builds and
-   pushes `ghcr.io/magnusp/apps/archetype-backend:<commit-sha>`.
-3. Once it succeeds, note the commit SHA (`git rev-parse HEAD`, or read it off
-   the run) and run **`Bump archetype-backend values`** with `image_tag` set
-   to that SHA.
-4. That's the deploy. Flux picks up the new `archetype-backend-values` artifact
-   on its own, composes the `ExternalArtifact`, and immediately triggers the
-   `HelmRelease` upgrade — no commit or manual apply needed. Confirm it rolled out:
+---
 
-   ```sh
-   kubectl get helmrelease -n flux-system archetype-backend-demo
-   kubectl get pods -n default -l app.kubernetes.io/instance=archetype-backend-demo
-   kubectl get deploy -n default -o jsonpath='{.items[0].spec.template.spec.containers[0].image}'
-   ```
+## Platform Governance & Kyverno Policies
 
-   The last command should print `archetype-backend:<the-sha-you-bumped-to>`.
+This repository separates policy enforcement into two layers:
 
-If you need to change something other than the image (replica count, chart
-version, etc.), edit `apps-source/values.yaml` directly before step 3 — the
-values workflow packages whatever is in that file at run time, it doesn't
-generate it from scratch.
+1.  **Platform Validation Policy** ([`clusters/kind/clusterpolicy-disallow-manual-image-revision.yaml`](clusters/kind/clusterpolicy-disallow-manual-image-revision.yaml)):
+    *   Enforces cluster-wide that developers and incoming Helm charts cannot manually set or forge the `example.com/image-revision` annotation on `Deployment` templates.
+2.  **Archetype Mutation Policy** ([`charts/archetype-backend/templates/policy.yaml`](charts/archetype-backend/templates/policy.yaml)):
+    *   A namespaced Kyverno `Policy` packaged with the archetype chart.
+    *   At admission time, it queries the OCI registry for the container image configuration, extracts `org.opencontainers.image.revision`, and injects it into `spec.template.metadata.annotations`.
 
-## Kyverno policies
-
-Kyverno is installed as a Flux `HelmRelease` (`kind-cluster/kyverno.tf`).
-
-The architecture splits governance and deployment concerns:
-
-1. **Platform Validation Policy (`clusters/kind/clusterpolicy-disallow-manual-image-revision.yaml`)**:
-   A cluster-wide policy enforcing that developers / charts cannot manually set or forge the `example.com/image-revision` annotation in their manifests.
-2. **Archetype Mutation Policy (`charts/archetype-backend/templates/policy.yaml`)**:
-   A namespaced policy packaged inside the Helm chart that automatically queries the OCI container registry at admission time, extracts `org.opencontainers.image.revision` from the image config, and injects the authentic `example.com/image-revision` annotation onto the pod template.
-
-`build-app-image.yaml` sets that label to the commit SHA at build time, so once Kyverno mutates a rollout you can confirm it landed with:
+To verify that the verified image revision was stamped on the running workload:
 
 ```sh
 kubectl get deploy -n default default-archetype-backend-demo \
   -o jsonpath='{.spec.template.metadata.annotations}'
 ```
 
-## Verifying attestations of published artifacts
+---
 
-Every publish workflow in this repo (`Publish Helm chart`, `Build app image`,
-`Bump archetype-backend values`) attests build provenance for what it pushes.
-To verify that an artifact was produced by its workflow (and not pushed by
-hand), use the GitHub CLI against any of:
+## Attestation & Provenance Verification
+
+All published OCI artifacts (charts, images, and values) include GitHub Actions build provenance attestations.
+
+To verify that an artifact was produced by an authentic repository workflow using the GitHub CLI:
 
 ```sh
-gh attestation verify oci://ghcr.io/magnusp/charts/<chart>:<version> --owner magnusp
+# Verify platform Helm chart
+gh attestation verify oci://ghcr.io/magnusp/charts/<chart-name>:<version> --owner magnusp
+
+# Verify application container image
 gh attestation verify oci://ghcr.io/magnusp/apps/archetype-backend:<commit-sha> --owner magnusp
+
+# Verify application values artifact
 gh attestation verify oci://ghcr.io/magnusp/apps/archetype-backend-values:latest --owner magnusp
-```
-
-This confirms the artifact's digest matches a provenance attestation signed by
-a GitHub Actions run in this repository, and prints the workflow run that
-produced it.
-
-You can also list all attestations for a given digest without verifying:
-
-```sh
-gh attestation verify \
-  oci://ghcr.io/magnusp/charts/<chart>:<version> \
-  --owner magnusp \
-  --format json | jq
 ```
