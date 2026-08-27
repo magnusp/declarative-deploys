@@ -2,6 +2,11 @@
 # application. Its values come entirely from the archetype-backend-values
 # ConfigMap (materialized from the apps-source/ OCI artifact) rather than
 # being inlined here — that's what makes publishing new values a deploy.
+#
+# No dependsOn: HelmRelease.spec.dependsOn can only reference other
+# HelmReleases, not the Kustomization that creates the ConfigMap below.
+# Until that ConfigMap exists, this HelmRelease simply fails and retries
+# on its own interval.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -15,8 +20,6 @@ spec:
   chartRef:
     kind: OCIRepository
     name: archetype-backend
-  dependsOn:
-    - name: archetype-backend-values
   valuesFrom:
     - kind: ConfigMap
       name: archetype-backend-values
