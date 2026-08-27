@@ -82,6 +82,7 @@ This document records the chronological development, architectural trade-offs, a
         3.  **SpiceDB Operator via Flux**: Installed `authzed/spicedb-operator` using Flux `GitRepository` + `Kustomization` with explicit RBAC extensions (`spicedb-operator-rbac.yaml`).
         4.  **In-Cluster Ephemeral SpiceDB & Human-Readable Fixtures**: Deployed a `SpiceDBCluster` resource in namespace `authz` and an automated initialization `Job` that seeds schema (`schema.zed`) and relationship tuples (`relationships.txt`) from a ConfigMap.
         5.  **Kyverno Admission Policy**: Added `ClusterPolicy/spicedb-attested-deploy-authz` querying SpiceDB's `/v1/permissions/check` API to assert that the actor has `deploy` permissions before admitting the workload.
+        6.  **Cryptographic Base Image Lineage Policy**: Added `ClusterPolicy/verify-app-image-nginx-ancestor` using Kyverno's `verifyImages` to cryptographically verify GitHub SLSA v1 build provenance and enforce that deployed application containers are derived from an approved `nginx` base image.
 
 ---
 
@@ -95,4 +96,5 @@ This document records the chronological development, architectural trade-offs, a
 | **Policy Scope** | Single static `ClusterPolicy` in GitOps | Split: Platform Validation (`ClusterPolicy`) + Chart Mutation (`Policy`) | Guarantees tamper-resistance while making archetype charts self-contained. |
 | **Policy Reporting** | None (in-memory reports only) | Policy Reporter + Persistent SQLite (PVC) + Web UI | Persists policy reports and audit logs locally with zero external database dependencies. |
 | **Deployment Authorization** | Kubernetes RBAC on Flux machine account | Provenance Deployer Identity + SpiceDB ReBAC check | Enforces decentralized zero-trust access control without giving developers cluster credentials. |
+| **Base Image Lineage** | Unverified container base layers | Kyverno `verifyImages` with SLSA v1 Attestation | Cryptographically guarantees that all admitted workloads derive from trusted golden base images. |
 | **In-Cluster TLS** | `cert-manager` installed via Flux | Removed | Reduced cluster surface area and cut standup time in half. |

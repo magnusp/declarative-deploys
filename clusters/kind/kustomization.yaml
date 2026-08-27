@@ -12,3 +12,4 @@ resources:
   - spicedb-cluster.yaml
   - spicedb-fixture-job.yaml
   - clusterpolicy-spicedb-authz.yaml
+  - clusterpolicy-verify-image-nginx-ancestor.yaml
