@@ -4,4 +4,4 @@ terraform.tfstate.backup
 *.tfstate
 *.tfstate.*
 *.tfvars
-nextgen-config
+kind-config

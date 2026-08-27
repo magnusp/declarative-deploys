@@ -41,12 +41,21 @@ check() {
   echo "Waiting for cert-manager pods..."
   mise exec -- kubectl wait --for=condition=Ready pods --all -n cert-manager --timeout=180s
 
+  echo "Waiting for Kyverno HelmRelease to become Ready..."
+  mise exec -- kubectl wait --for=condition=Ready helmrelease/kyverno -n flux-system --timeout=180s
+
+  echo "Waiting for Kyverno pods..."
+  mise exec -- kubectl wait --for=condition=Ready pods --all -n kyverno --timeout=180s
+
   echo
   echo "--- flux-system pods ---"
   mise exec -- kubectl get pods -n flux-system
   echo
   echo "--- cert-manager pods ---"
   mise exec -- kubectl get pods -n cert-manager
+  echo
+  echo "--- kyverno pods ---"
+  mise exec -- kubectl get pods -n kyverno
   echo
   echo "Cluster and Flux bootstrap are healthy."
 }
