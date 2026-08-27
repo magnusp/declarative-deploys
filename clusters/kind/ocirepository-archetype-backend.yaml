@@ -15,4 +15,4 @@ spec:
   interval: 10m
   url: oci://ghcr.io/magnusp/charts/archetype-backend
   ref:
-    tag: 0.1.0
+    tag: 0.1.1
