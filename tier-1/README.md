@@ -59,5 +59,5 @@ Tier 2 replaces the raw manifests with a Helm chart, introducing the platform/ap
 3. A `HelmRelease` sourced from that chart (via `chartRef: {kind: OCIRepository}`) replaces the raw
    objects in the synced directory, with the app's values inline in the `HelmRelease` for now.
 
-See [`tier-2/README.md`](../tier-2/README.md) for the full detail, and [`TIERS.md`](../TIERS.md) for the
-overall progression.
+See [`tier-2/README.md`](../tier-2/README.md) for the full detail, and the root
+[README](../README.md#tiers) for the overall progression.

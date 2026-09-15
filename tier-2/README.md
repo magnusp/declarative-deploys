@@ -64,5 +64,5 @@ Tier 3 removes the need for the app team to hand-copy values or wait for a poll 
    `OCIRepository` to that `ExternalArtifact` — giving immediate, event-driven reconciliation whenever
    either changes, and letting the app team deploy without a single git commit to this repository.
 
-See [`tier-3/README.md`](../tier-3/README.md) for the full detail, and [`TIERS.md`](../TIERS.md) for the
-overall progression.
+See [`tier-3/README.md`](../tier-3/README.md) for the full detail, and the root
+[README](../README.md#tiers) for the overall progression.

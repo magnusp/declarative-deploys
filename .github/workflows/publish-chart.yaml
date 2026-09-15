@@ -1,4 +1,4 @@
-# Relevant from tier-2 onward (see /TIERS.md) — publishes the platform Helm
+# Relevant from tier-2 onward (see README.md#tiers) — publishes the platform Helm
 # chart tier-2+ OCIRepositories track. Not needed for tier-0/tier-1, which
 # have no Helm chart at all.
 name: Publish Helm chart

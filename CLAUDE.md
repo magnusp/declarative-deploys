@@ -8,7 +8,7 @@ A demonstration of decoupled GitOps, presented as a progression of six isolated 
 (`tier-0` … `tier-5`) rather than a single finished state. Each tier is a self-contained directory with
 its own kind cluster / OpenTofu stack, peeling back capability from `tier-5` (platform-owned Helm charts
 and cluster governance policies vs. application-owned source/values, composed at runtime by Flux) down
-to `tier-0` (raw manifests, `kubectl apply`, no reconciler). See [`TIERS.md`](TIERS.md) for the full
+to `tier-0` (raw manifests, `kubectl apply`, no reconciler). See the root README's [Tiers](README.md#tiers) section for the full
 progression and what each tier introduces.
 
 There is no application runtime to build/lint/test in the traditional sense — most "correctness" here

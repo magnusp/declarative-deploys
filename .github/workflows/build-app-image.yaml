@@ -1,4 +1,4 @@
-# Relevant from tier-2 onward (see /TIERS.md) — builds and publishes the app
+# Relevant from tier-2 onward (see README.md#tiers) — builds and publishes the app
 # image tier-2+ HelmReleases reference. Not needed for tier-0/tier-1, which
 # use a manually built/pushed image.
 name: Build app image

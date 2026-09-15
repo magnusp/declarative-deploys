@@ -4,11 +4,29 @@ A demonstration of decoupled platform engineering and application development wo
 OCI artifacts, and Kyverno on a local kind cluster — presented as a progression of six isolated tiers,
 each adding one capability on top of the last.
 
-## Start here
+## Tiers
 
-**[TIERS.md](TIERS.md)** is the landing page for the actual progression: what each tier introduces, in
-what order, and why. Start at `tier-0` and work upward, or jump straight to `tier-5` if you want the
-full, final architecture.
+This repository demonstrates the platform/application split, GitOps delivery, and supply-chain
+governance as a progression rather than a single finished state. Each tier is a fully isolated
+directory — its own kind cluster, its own OpenTofu stack, its own manifests — that peels back
+capability from the final tier (`tier-5`, which is the complete showcase). Read them in order; each
+tier's `README.md` ends with a "Progressing to tier-(N+1)" section explaining exactly what changes and
+why.
+
+The throughline: no separation of concerns (tier 0) → automated reconciliation (tier 1) → separating
+platform and application ownership (tier 2) → decoupling application deploys from git commits (tier 3)
+→ authorizing who can deploy (tier 4) → verifying what gets deployed (tier 5).
+
+| Tier | Name | Introduces |
+| :--- | :--- | :--- |
+| [tier-0](tier-0/README.md) | Raw manifests | `kubectl apply`, no reconciler, no Helm — the worst case. |
+| [tier-1](tier-1/README.md) | Flux GitOps | Automated reconciliation of the same raw manifests. |
+| [tier-2](tier-2/README.md) | Helm chart split | Platform-owned chart vs. app-owned values; the core platform/app lesson. |
+| [tier-3](tier-3/README.md) | OCI-published values | App team deploys by publishing an OCI artifact, no git commit required. |
+| [tier-4](tier-4/README.md) | SpiceDB ReBAC | Admission-time authorization: who is allowed to deploy. |
+| [tier-5](tier-5/README.md) | Full governance | Opt-in policy scoping, image-revision integrity, base-image attestation, Policy Reporter. |
+
+Start at `tier-0` and work upward, or jump straight to `tier-5` if you want the full, final architecture.
 
 ## Overview
 
@@ -37,7 +55,8 @@ flowchart TB
     values --> compose
 ```
 
-This diagram reflects tier 3 and above — see [TIERS.md](TIERS.md) for what's present at earlier tiers.
+This diagram reflects tier 3 and above — see the [Tiers](#tiers) section above for what's present at
+earlier tiers.
 
 ---
 
@@ -45,7 +64,7 @@ This diagram reflects tier 3 and above — see [TIERS.md](TIERS.md) for what's p
 
 * [`tier-0/`](tier-0/) through [`tier-5/`](tier-5/): isolated tier directories, each with its own
   `kind-cluster/` (OpenTofu), application/chart/policy manifests, and `README.md` explainer. See
-  [`TIERS.md`](TIERS.md).
+  [Tiers](#tiers) above.
 * [`.github/workflows/`](.github/workflows/): GitHub Actions workflows for publishing charts, images,
   and values artifacts with build provenance attestations. Each workflow notes the tier it becomes
   relevant at.
@@ -81,3 +100,7 @@ cd tier-N/kind-cluster
 For the deep-dive on any specific tier's application delivery workflow, governance policies,
 attestation verification, or SpiceDB ReBAC setup, see that tier's own `README.md` — most of that detail
 now lives in [`tier-5/README.md`](tier-5/README.md), since it's the tier where all of it is present.
+
+CI workflows in [`.github/workflows/`](.github/workflows/) live at the repository root (a GitHub Actions
+requirement) but are only meaningful once you've reached the tier that introduces them — each workflow
+file notes the tier it becomes relevant at.

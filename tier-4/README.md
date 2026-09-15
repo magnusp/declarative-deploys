@@ -81,5 +81,5 @@ Tier 5 adds:
    build layers.
 4. **Policy Reporter**: a dashboard and SQLite-backed audit trail for all Kyverno policy decisions.
 
-See [`tier-5/README.md`](../tier-5/README.md) for the full detail, and [`TIERS.md`](../TIERS.md) for the
-overall progression.
+See [`tier-5/README.md`](../tier-5/README.md) for the full detail, and the root
+[README](../README.md#tiers) for the overall progression.

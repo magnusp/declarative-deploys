@@ -59,5 +59,5 @@ Tier 1 introduces Flux to reconcile these exact same manifests:
 3. No manifest content changes — the lesson at this step is purely "a reconciler now owns applying
    these files, a human no longer does."
 
-See [`tier-1/README.md`](../tier-1/README.md) for the full detail, and [`TIERS.md`](../TIERS.md) for the
-overall progression.
+See [`tier-1/README.md`](../tier-1/README.md) for the full detail, and the root
+[README](../README.md#tiers) for the overall progression.

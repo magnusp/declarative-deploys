@@ -68,5 +68,5 @@ Tier 4 adds a SpiceDB ReBAC admission gate:
    published the values artifact (`dev.authz.app.deployer` label, now stamped by
    `publish-app-values.yaml`) has `deploy` permission on the target service.
 
-See [`tier-4/README.md`](../tier-4/README.md) for the full detail, and [`TIERS.md`](../TIERS.md) for the
-overall progression.
+See [`tier-4/README.md`](../tier-4/README.md) for the full detail, and the root
+[README](../README.md#tiers) for the overall progression.

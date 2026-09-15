@@ -86,6 +86,33 @@ This document records the chronological development, architectural trade-offs, a
 
 ---
 
+### Phase 6: Tiered Progression Restructure
+
+*   **Scale down into a tiered showcase**: *Restructure into a tiered progression (tier-0 through tier-5)*
+    *   **Problem**: The repository demonstrated its full final architecture (chart/app split, OCI artifact
+        composition, SpiceDB ReBAC, two-layer Kyverno governance, Policy Reporter) as a single indivisible
+        state. There was no way to learn or demo the platform/app split without also standing up every
+        governance and authorization layer at once.
+    *   **Solution**: Split the repository into six self-contained tiers (`tier-0` … `tier-5`), each with
+        its own kind cluster, OpenTofu stack, and manifests, peeling back one capability at a time from
+        the original final state (now `tier-5`, moved via `git mv` to preserve history):
+        1.  **tier-0**: raw manifests, `kubectl apply`, no reconciler, no Helm.
+        2.  **tier-1**: same raw manifests, now reconciled by Flux.
+        3.  **tier-2**: introduces the platform/app split via a Helm chart (`chartRef` directly to the
+            chart `OCIRepository`, inline values, no `ArtifactGenerator` yet).
+        4.  **tier-3**: adds the app-published values OCI artifact and `ArtifactGenerator`/`ExternalArtifact`
+            composition, decoupling app deploys from git commits.
+        5.  **tier-4**: adds SpiceDB ReBAC, scoped directly to the `apps` namespace (no label opt-in yet).
+        6.  **tier-5**: unchanged final state — retrofits the SpiceDB policy to the
+            `governance.platform.io/managed` label scheme and adds both image-integrity `ClusterPolicy`
+            objects plus Policy Reporter.
+    *   **Decision**: CI workflows stay at the repository root (a GitHub Actions requirement) but are
+        hardcoded to `tier-5/` paths, since only tier-5 has the full publishing pipeline; each workflow
+        notes the tier it becomes relevant at. The root `README.md` absorbed the tier index (formerly a
+        separate `TIERS.md`) as its "Tiers" section, so there is a single entry point into the repository.
+
+---
+
 ## Architectural Decision Summary Matrix
 
 | Decision Area | Previous Approach | Final Approach | Rationale |
@@ -98,3 +125,4 @@ This document records the chronological development, architectural trade-offs, a
 | **Deployment Authorization** | Kubernetes RBAC on Flux machine account | Provenance Deployer Identity + SpiceDB ReBAC check | Enforces decentralized zero-trust access control without giving developers cluster credentials. |
 | **Base Image Lineage** | Unverified container base layers | Kyverno `verifyImages` with SLSA v1 Attestation | Cryptographically guarantees that all admitted workloads derive from trusted golden base images. |
 | **In-Cluster TLS** | `cert-manager` installed via Flux | Removed | Reduced cluster surface area and cut standup time in half. |
+| **Repository Structure** | Single flat directory tree at the final architecture | Six isolated `tier-N/` directories, each a complete standalone stack | Lets the platform/app split, GitOps, and governance concerns be learned and demoed incrementally instead of all at once. |

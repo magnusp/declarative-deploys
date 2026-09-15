@@ -198,4 +198,4 @@ spec:
 
 There is no tier 6. If you're arriving here from [`tier-4`](../tier-4/README.md), see the "What this
 tier demonstrates" section above for the delta. For the overall progression, see
-[`TIERS.md`](../TIERS.md).
+the root README's [Tiers](../README.md#tiers) section.

@@ -1,4 +1,4 @@
-# Relevant from tier-3 onward (see /TIERS.md) — publishes the values OCI
+# Relevant from tier-3 onward (see README.md#tiers) — publishes the values OCI
 # artifact that tier-3+ ArtifactGenerators compose with the chart. Not needed
 # for tier-0/tier-1/tier-2, which have no values-publishing pipeline.
 name: Bump archetype-backend values
