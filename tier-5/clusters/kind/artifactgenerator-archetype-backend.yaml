@@ -1,0 +1,25 @@
+# Composes the archetype-backend base Helm chart and the application's
+# values.yaml (from archetype-backend-values) into a single ExternalArtifact.
+# Whenever either the chart or the values OCI artifact updates, this triggers
+# an immediate reconciliation on the HelmRelease.
+apiVersion: source.extensions.fluxcd.io/v1beta1
+kind: ArtifactGenerator
+metadata:
+  name: archetype-backend-demo
+  namespace: flux-system
+spec:
+  sources:
+    - alias: chart
+      kind: OCIRepository
+      name: archetype-backend
+    - alias: values
+      kind: OCIRepository
+      name: archetype-backend-values
+  artifacts:
+    - name: archetype-backend-demo
+      copy:
+        - from: "@chart/**"
+          to: "@artifact/"
+        - from: "@values/values.yaml"
+          to: "@artifact/archetype-backend/values.yaml"
+          strategy: Merge

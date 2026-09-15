@@ -1,7 +1,7 @@
 variable "cluster_name" {
   description = "Name of the kind cluster."
   type        = string
-  default     = "kind"
+  default     = "tier-2"
 }
 
 variable "kubernetes_version" {
@@ -37,17 +37,5 @@ variable "flux_git_branch" {
 variable "flux_git_path" {
   description = "Path within the git repository containing the cluster's Flux manifests."
   type        = string
-  default     = "clusters/kind"
-}
-
-variable "kyverno_version" {
-  description = "Kyverno chart version (OCI tag) for Flux to reconcile."
-  type        = string
-  default     = "3.9.0"
-}
-
-variable "policy_reporter_version" {
-  description = "Policy Reporter chart version (OCI tag) for Flux to reconcile."
-  type        = string
-  default     = "3.10.0"
+  default     = "tier-2/clusters/kind"
 }

@@ -1,0 +1,27 @@
+# Plain Deployment for the archetype-backend demo app. No Helm chart, no
+# templating — everything a change requires is a hand-edit of this file.
+# The image is built by hand from apps-source/ and pushed manually; there is
+# no CI publishing pipeline at this tier.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: archetype-backend-demo
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: archetype-backend-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: archetype-backend-demo
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: archetype-backend-demo
+    spec:
+      containers:
+        - name: archetype-backend-demo
+          image: ghcr.io/magnusp/apps/archetype-backend:manual
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80

@@ -1,0 +1,14 @@
+# archetype-backend chart values for this application. Published as an OCI
+# artifact by .github/workflows/publish-app-values.yaml, whenever the
+# application image is rolled out — Flux picks it up via the
+# archetype-backend-values OCIRepository/Kustomization in clusters/kind/.
+replicas: 1
+
+image:
+  repository: ghcr.io/magnusp/apps/archetype-backend
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+service:
+  port: 8080
+  targetPort: 80

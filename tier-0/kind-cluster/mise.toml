@@ -1,0 +1,4 @@
+[tools]
+kind = "latest"
+kubectl = "latest"
+opentofu = "latest"

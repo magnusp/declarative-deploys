@@ -1,0 +1,5 @@
+# Dedicated application workspace namespace for showcase workloads.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apps

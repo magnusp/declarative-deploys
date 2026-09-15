@@ -1,240 +1,83 @@
 # Declarative Deploys Showcase
 
-A demonstration of decoupled platform engineering and application development workflows using Flux CD, OCI artifacts, and Kyverno on a local kind cluster.
+A demonstration of decoupled platform engineering and application development workflows using Flux CD,
+OCI artifacts, and Kyverno on a local kind cluster — presented as a progression of six isolated tiers,
+each adding one capability on top of the last.
+
+## Start here
+
+**[TIERS.md](TIERS.md)** is the landing page for the actual progression: what each tier introduces, in
+what order, and why. Start at `tier-0` and work upward, or jump straight to `tier-5` if you want the
+full, final architecture.
 
 ## Overview
 
-This repository demonstrates a separation of concerns between **platform teams** and **application teams**:
+At its most complete (`tier-5`), this repository demonstrates a separation of concerns between
+**platform teams** and **application teams**:
 
-*   **Platform Engineering**: Owns archetype Helm charts (`charts/`) and cluster-wide governance policies. Charts are packaged and published to GitHub Container Registry (GHCR) with SemVer tags.
-*   **Application Development**: Owns application source code and deployment parameters (`apps-source/values.yaml`). Application teams deploy by publishing container images and `values.yaml` artifacts to GHCR using a mutable `latest` tag without making Git commits to the cluster repository.
-*   **Cluster Infrastructure**: Provisions a local kind cluster and bootstraps Flux CD and Kyverno using OpenTofu (`kind-cluster/`).
-*   **Reconciliation & Composition**: Flux `source-watcher` composes the platform base chart and developer values into an `ExternalArtifact`, triggering immediate event-driven upgrades in `helm-controller` (`clusters/kind/`).
+* **Platform engineering**: owns archetype Helm charts (`tier-N/charts/`) and cluster-wide governance
+  policies. Charts are packaged and published to GitHub Container Registry (GHCR) with SemVer tags.
+* **Application development**: owns application source code and deployment parameters
+  (`tier-N/apps-source/values.yaml`). From tier 3 onward, application teams deploy by publishing
+  container images and `values.yaml` artifacts to GHCR using a mutable `latest` tag without making git
+  commits to the cluster repository.
+* **Cluster infrastructure**: each tier provisions its own local kind cluster and bootstraps whatever
+  subset of Flux CD / Kyverno that tier needs, using OpenTofu (`tier-N/kind-cluster/`).
+* **Reconciliation & composition** (tier 3+): Flux `source-watcher` composes the platform base chart and
+  developer values into an `ExternalArtifact`, triggering immediate event-driven upgrades in
+  `helm-controller` (`tier-N/clusters/kind/`).
 
+```mermaid
+flowchart TB
+    chart["Platform concern<br/>Base chart (GHCR: oci://.../archetype-backend:0.1.1)"]
+    values["Developer concern<br/>App values (GHCR: oci://.../values:latest)"]
+    compose["Flux artifact composition (source-watcher)<br/>ArtifactGenerator → ExternalArtifact (merged chart)"]
+
+    chart --> compose
+    values --> compose
 ```
-┌────────────────────────────────────────────────────────┐
-│ Platform Concern                                       │
-│ Base Chart (GHCR: oci://.../archetype-backend:0.1.1)   │
-└──────────────────────────┬─────────────────────────────┘
-                           │
-                           ▼
-┌────────────────────────────────────────────────────────┐
-│ Flux Artifact Composition (source-watcher)             │
-│ ArtifactGenerator ───► ExternalArtifact (Merged Chart) │
-└──────────────────────────▲─────────────────────────────┘
-                           │
-┌──────────────────────────┴─────────────────────────────┐
-│ Developer Concern                                      │
-│ App Values (GHCR: oci://.../values:latest)             │
-└────────────────────────────────────────────────────────┘
-```
+
+This diagram reflects tier 3 and above — see [TIERS.md](TIERS.md) for what's present at earlier tiers.
 
 ---
 
-## Directory Structure
+## Directory structure
 
-*   [`kind-cluster/`](kind-cluster/): OpenTofu configuration that creates the kind cluster and installs the `flux-operator` and Kyverno.
-*   [`charts/`](charts/): Platform-owned Helm charts consumed by application teams.
-*   [`clusters/kind/`](clusters/kind/): Flux manifests defining the continuous delivery pipeline: `OCIRepository`, `ArtifactGenerator`, `HelmRelease`, and governance policies.
-*   [`apps-source/`](apps-source/): Simulated application repository containing the container build files and environment values (`values.yaml`).
-*   [`fixtures/spicedb/`](fixtures/spicedb/): Human-readable SpiceDB schema (`schema.zed`) and relationship tuples (`relationships.txt`).
-*   [`scripts/`](scripts/): Developer CLI utilities, including `spicedb-fixture.sh` for testing permissions and updating fixtures.
-*   [`.github/workflows/`](.github/workflows/): GitHub Actions workflows for publishing charts, images, and values artifacts with build provenance attestations.
+* [`tier-0/`](tier-0/) through [`tier-5/`](tier-5/): isolated tier directories, each with its own
+  `kind-cluster/` (OpenTofu), application/chart/policy manifests, and `README.md` explainer. See
+  [`TIERS.md`](TIERS.md).
+* [`.github/workflows/`](.github/workflows/): GitHub Actions workflows for publishing charts, images,
+  and values artifacts with build provenance attestations. Each workflow notes the tier it becomes
+  relevant at.
 
 ---
 
-## Getting Started
+## Prerequisites
 
-### Prerequisites
-
-Ensure you have installed the required CLI tools managed by `mise`:
+Each tier's tooling is version-pinned via `mise` (see that tier's `mise.toml` and
+`kind-cluster/mise.toml`):
 
 ```sh
+cd tier-N
 mise install
 ```
 
-This installs:
-*   `kind`
-*   `opentofu`
-*   `helm`
-*   `kubectl`
-*   `yq`
-*   `flux`
+## Cluster lifecycle
 
-### Cluster Lifecycle
-
-All cluster lifecycle commands are managed by [`kind-cluster/cluster.sh`](kind-cluster/cluster.sh):
+Every tier's cluster lifecycle is managed by its own `tier-N/kind-cluster/cluster.sh`:
 
 ```sh
-cd kind-cluster
+cd tier-N/kind-cluster
 
-./cluster.sh up      # Create the kind cluster, bootstrap Flux and Kyverno, and verify health
-./cluster.sh check   # Check pod readiness and print component status
-./cluster.sh down    # Destroy the OpenTofu stack and delete the kind cluster
+./cluster.sh up      # Create the tier's kind cluster and bring up whatever that tier needs
+./cluster.sh check   # Check readiness and print component status
+./cluster.sh down    # Tear the tier's cluster down
 ```
 
-> **Note**: Both `up` and `check` automatically configure `KUBECONFIG` from the OpenTofu state. You do not need to export `KUBECONFIG` manually.
+> **Note**: `up` and `check` automatically configure `KUBECONFIG` from that tier's OpenTofu state. You
+> do not need to export `KUBECONFIG` manually. Tiers use distinct kind cluster names (`tier-0` …
+> `tier-5`), so multiple tiers could in principle run side by side.
 
----
-
-## Application Delivery Workflow
-
-The application team delivers updates independently of the platform GitOps repository.
-
-### Workflows
-
-1.  **Publish Helm chart** (`.github/workflows/publish-chart.yaml`):
-    *   Packages the platform chart (`charts/archetype-backend`) with a given SemVer version.
-    *   Pushes `oci://ghcr.io/magnusp/charts/archetype-backend:<version>`.
-    *   Generates a GitHub build provenance attestation.
-2.  **Build app image** (`.github/workflows/build-app-image.yaml`):
-    *   Builds the container image from `apps-source/`.
-    *   Pushes `ghcr.io/magnusp/apps/archetype-backend:<commit-sha>`.
-    *   Stamps the OCI config labels `org.opencontainers.image.revision`, `org.opencontainers.image.vendor`, and `dev.authz.app.deployer`.
-    *   Generates a GitHub build provenance attestation.
-3.  **Bump archetype-backend values** (`.github/workflows/publish-app-values.yaml`):
-    *   Updates `image.tag` in `apps-source/values.yaml` to the target commit SHA.
-    *   Pushes `apps-source/` as an OCI artifact to `ghcr.io/magnusp/apps/archetype-backend-values:latest` with deployer provenance annotations.
-    *   Generates a GitHub build provenance attestation.
-
-### Releasing an Application Update (Runbook)
-
-Follow these steps to deploy an application change:
-
-1.  **Merge changes** to the main application branch.
-2.  **Trigger `Build app image`**:
-    *   Navigate to **Actions** > **Build app image** and run the workflow on your target commit.
-3.  **Trigger `Bump archetype-backend values`**:
-    *   Run the workflow with the `image_tag` input set to the commit SHA built in Step 2.
-4.  **Verify Deployment**:
-    *   Flux automatically detects the new values artifact digest, generates a new `ExternalArtifact`, and reconciles the `HelmRelease`:
-
-    ```sh
-    kubectl get helmrelease -n flux-system archetype-backend-demo
-    kubectl get pods -n apps -l app.kubernetes.io/instance=archetype-backend-demo
-    kubectl get deploy -n apps apps-archetype-backend-demo \
-      -o jsonpath='{.items[0].spec.template.spec.containers[0].image}'
-    ```
-
----
-
-## Platform Governance & Kyverno Policies
-
-This repository separates policy enforcement into two layers and scopes governance policies to opt-in application workspaces labeled `governance.platform.io/managed: "true"` (e.g. `namespace/apps`):
-
-1.  **Platform Validation Policy** ([`clusters/kind/clusterpolicy-disallow-manual-image-revision.yaml`](clusters/kind/clusterpolicy-disallow-manual-image-revision.yaml)):
-    *   Enforces across managed workspaces that developers and incoming Helm charts cannot manually set or forge the `example.com/image-revision` annotation on `Deployment` templates.
-2.  **Archetype Mutation Policy** ([`charts/archetype-backend/templates/policy.yaml`](charts/archetype-backend/templates/policy.yaml)):
-    *   A namespaced Kyverno `Policy` packaged with the archetype chart.
-    *   At admission time, it queries the OCI registry for the container image configuration, extracts `org.opencontainers.image.revision`, and injects it into `spec.template.metadata.annotations`.
-3.  **Image Base Ancestor & Layer Policy** ([`clusters/kind/clusterpolicy-verify-image-nginx-ancestor.yaml`](clusters/kind/clusterpolicy-verify-image-nginx-ancestor.yaml)):
-    *   Inspects the container image filesystem configuration at admission time using Kyverno's `imageRegistry` context.
-    *   Iterates across root filesystem layer hashes (`imageData.configData.rootfs.diff_ids`) to cryptographically assert that the container image is derived from an approved `nginx:1.27` base image (`apps-source/Dockerfile`), regardless of intermediate build steps.
-
-To verify that the verified image revision was stamped on the running workload:
-
-```sh
-kubectl get deploy -n apps apps-archetype-backend-demo \
-  -o jsonpath='{.spec.template.metadata.annotations}'
-```
-
-### Policy Reporter & Dashboard
-
-Policy Reporter is installed as a Flux `HelmRelease` (`kind-cluster/policy-reporter.tf`) and persists policy execution history and violation reports in an embedded SQLite database backed by a persistent volume (`policy-reporter-sqlite-pvc`).
-
-To access the interactive Policy Reporter web dashboard:
-
-```sh
-kubectl port-forward -n policy-reporter svc/policy-reporter-ui 8080:8080
-```
-
-Open `http://localhost:8080` in your browser to view real-time Kyverno policy reports, audit logs, and compliance metrics.
-
-### SpiceDB ReBAC Authorization
-
-The cluster includes an ephemeral SpiceDB instance managed by the **SpiceDB Operator** (`clusters/kind/spicedb-operator.yaml` & `clusters/kind/spicedb-cluster.yaml`) and an admission gate policy ([`clusters/kind/clusterpolicy-spicedb-authz.yaml`](clusters/kind/clusterpolicy-spicedb-authz.yaml)):
-
-1.  **OCI Deployer Metadata**: When workflows build container images and package values artifacts, they embed the triggering actor (`dev.authz.app.deployer`) in the OCI labels.
-2.  **Admission Gate Check**: When Flux reconciles a deployment, Kyverno extracts the deployer identity and queries SpiceDB's `/v1/permissions/check` API to verify if the actor has `deploy` permissions on the service.
-3.  **Human-Readable Fixtures (`fixtures/spicedb/`)**:
-    *   [`fixtures/spicedb/schema.zed`](fixtures/spicedb/schema.zed): Standard SpiceDB schema definition using `.zed` syntax.
-    *   [`fixtures/spicedb/relationships.txt`](fixtures/spicedb/relationships.txt): Line-delimited relationship tuples (`resource#relation@subject`).
-4.  **Experimenting & Testing Permissions**:
-
-```sh
-# Port-forward SpiceDB HTTP API
-kubectl port-forward -n authz svc/spicedb 8443:8443
-
-# Check if user 'magnusp' has deploy permission
-./scripts/spicedb-fixture.sh check magnusp
-
-# Check an unauthorized user
-./scripts/spicedb-fixture.sh check unauthorized-dev
-
-# Edit fixtures/spicedb/relationships.txt or schema.zed, then apply:
-./scripts/spicedb-fixture.sh apply
-```
-
----
-
-## Attestation & Provenance Verification
-
-All published OCI artifacts (charts, images, and values) include GitHub Actions build provenance attestations.
-
-To verify that an artifact was produced by an authentic repository workflow using the GitHub CLI:
-
-```sh
-# Verify platform Helm chart
-gh attestation verify oci://ghcr.io/magnusp/charts/<chart-name>:<version> --owner magnusp
-
-# Verify application container image
-gh attestation verify oci://ghcr.io/magnusp/apps/archetype-backend:<commit-sha> --owner magnusp
-
-# Verify application values artifact
-gh attestation verify oci://ghcr.io/magnusp/apps/archetype-backend-values:latest --owner magnusp
-```
-
----
-
-## Bare-Metal & Alternative Delivery Options
-
-While this repository demonstrates GitHub Actions with GitHub OIDC, the same Kyverno and Flux architecture adapts directly to **bare-metal / on-premises clusters** using modern Identity Providers (Entra ID, Google Workspace, GitHub, Okta, Keycloak) without requiring cloud-hosted Kubernetes (EKS/GKE/AKS) or cloud KMS:
-
-| Pattern | Signing & Identity Mechanism | Kyverno Verification Mechanism |
-| :--- | :--- | :--- |
-| **Developer Workstation CLI** | Cosign with Corporate OIDC (Microsoft Entra ID, Google Workspace, GitHub) + Public Sigstore Rekor | `verifyImages` keyless rule matching corporate issuer (e.g. `login.microsoftonline.com`, `accounts.google.com`) and user email regex. |
-| **Self-Hosted CI Runners** | Bare-metal runners (GitLab CI, Jenkins, Drone) signing via HashiCorp Vault Transit Engine or local Cosign keys | `verifyImages` rule checking static public keys stored in a Kubernetes `Secret` or fetched from on-prem Vault. |
-| **ChatOps / Webhooks** | Slack / Mattermost webhook $\rightarrow$ Flux `Receiver` carrying triggering user email | Kyverno `apiCall` querying in-cluster SpiceDB to verify if the user has `deploy` permissions on the service. |
-| **Direct `kubectl` Access** | Entra ID / Google / Keycloak OIDC Kubeconfig | Kyverno validation evaluating `request.userInfo.username` against SpiceDB ReBAC; blocks direct production edits in favor of GitOps. |
-| **Automated Dependency Bots** | Renovate / Dependabot with dedicated bot keypair | Public key verification + OpenVEX / in-toto vulnerability scan conditions. |
-
-### Example: Keyless Sigstore with Microsoft Entra ID / Google Workspace
-```yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: verify-corporate-oidc-attestations
-spec:
-  validationFailureAction: Enforce
-  rules:
-    - name: verify-developer-identity
-      match:
-        any:
-          - resources:
-              kinds: [Deployment]
-              namespaceSelector:
-                matchLabels:
-                  governance.platform.io/managed: "true"
-      verifyImages:
-        - imageReferences: ["ghcr.io/magnusp/apps/*"]
-          attestations:
-            - type: "https://slsa.dev/provenance/v1"
-              attestors:
-                - entries:
-                    - keyless:
-                        # Microsoft Entra ID, Google Workspace, or GitHub
-                        issuer: "https://login.microsoftonline.com/<tenant-id>/v2.0"
-                        subjectRegExp: ".*@company.com"
-                        rekor:
-                          url: "https://rekor.sigstore.dev"
-```
+For the deep-dive on any specific tier's application delivery workflow, governance policies,
+attestation verification, or SpiceDB ReBAC setup, see that tier's own `README.md` — most of that detail
+now lives in [`tier-5/README.md`](tier-5/README.md), since it's the tier where all of it is present.
