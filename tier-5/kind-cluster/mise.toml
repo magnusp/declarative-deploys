@@ -1,6 +1,0 @@
-[tools]
-helm = "latest"
-kind = "latest"
-kubectl = "latest"
-opentofu = "latest"
-yq = "latest"

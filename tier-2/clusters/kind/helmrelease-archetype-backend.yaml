@@ -1,10 +1,12 @@
 # Instance of the archetype-backend chart for the apps-source/ simulated
-# application. The chart comes straight from GHCR (OCIRepository/archetype-backend);
-# values are static and inline here, mirroring apps-source/values.yaml by hand.
-# There is no OCI values artifact or composition step yet — that arrives in tier 3.
+# application. Its chart and values are composed directly into an ExternalArtifact
+# by source-watcher (ArtifactGenerator), providing immediate event-driven reconciliation
+# whenever either the chart version or the values artifact changes.
 #
-# Reconciliation happens on Flux's poll interval (10m) rather than being event-driven,
-# since there's no ArtifactGenerator/ExternalArtifact watching for changes.
+# Remediation strategy: bounded retries (3) with automatic rollback on upgrade failure.
+# When a new valid values/chart artifact is published, source-watcher generates
+# a new ExternalArtifact revision, which automatically resets failure state and
+# triggers a new release upgrade.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -23,14 +25,6 @@ spec:
       remediateLastFailure: true
   interval: 10m
   chartRef:
-    kind: OCIRepository
-    name: archetype-backend
-  values:
-    replicas: 1
-    image:
-      repository: ghcr.io/magnusp/apps/archetype-backend
-      tag: "latest"
-      pullPolicy: IfNotPresent
-    service:
-      port: 8080
-      targetPort: 80
+    kind: ExternalArtifact
+    name: archetype-backend-demo
+

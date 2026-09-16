@@ -39,3 +39,9 @@ variable "flux_git_path" {
   type        = string
   default     = "tier-3/clusters/kind"
 }
+
+variable "kyverno_version" {
+  description = "Kyverno chart version (OCI tag) for Flux to reconcile."
+  type        = string
+  default     = "3.9.0"
+}

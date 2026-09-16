@@ -6,8 +6,11 @@
 #   ./cluster.sh down     Destroy the OpenTofu stack and the cluster.
 #   ./cluster.sh check    Wait for Flux to become ready and report status.
 #
-# The repository is public, so Flux needs no credentials to clone it and
-# sync tier-1/manifests/.
+# The repository is public, and the chart OCIRepository sources under
+# clusters/kind/ assume their GHCR packages are also public, so Flux needs
+# no credentials for either. If a source is added that isn't public, apply
+# its pull secret manually with `kubectl create secret ... -n flux-system`
+# and reference it via that source's secretRef.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")"

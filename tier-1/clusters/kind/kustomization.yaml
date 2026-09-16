@@ -3,6 +3,4 @@ kind: Kustomization
 resources:
   - namespace-apps.yaml
   - ocirepository-archetype-backend.yaml
-  - ocirepository-archetype-backend-values.yaml
-  - artifactgenerator-archetype-backend.yaml
   - helmrelease-archetype-backend.yaml

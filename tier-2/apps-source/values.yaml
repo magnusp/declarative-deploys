@@ -1,6 +1,7 @@
-# archetype-backend chart values for this application. At this tier these are
-# hand-copied into clusters/kind/helmrelease-archetype-backend.yaml's inline
-# spec.values — there is no publishing pipeline for values yet (see tier 3).
+# archetype-backend chart values for this application. Published as an OCI
+# artifact by .github/workflows/publish-app-values.yaml, whenever the
+# application image is rolled out — Flux picks it up via the
+# archetype-backend-values OCIRepository/Kustomization in clusters/kind/.
 replicas: 1
 
 image:

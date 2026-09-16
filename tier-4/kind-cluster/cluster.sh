@@ -41,6 +41,12 @@ check() {
   echo "Waiting for Kyverno pods..."
   mise exec -- kubectl wait --for=condition=Ready pods --all -n kyverno --timeout=180s
 
+  echo "Waiting for Policy Reporter HelmRelease to become Ready..."
+  mise exec -- kubectl wait --for=condition=Ready helmrelease/policy-reporter -n flux-system --timeout=180s
+
+  echo "Waiting for Policy Reporter pods..."
+  mise exec -- kubectl wait --for=condition=Ready pods --all -n policy-reporter --timeout=180s
+
   if mise exec -- kubectl get namespace authz > /dev/null 2>&1; then
     echo "Waiting for SpiceDB deployment in authz namespace..."
     mise exec -- kubectl wait --for=condition=Available deployment/spicedb-spicedb -n authz --timeout=180s || true
@@ -52,6 +58,9 @@ check() {
   echo
   echo "--- kyverno pods ---"
   mise exec -- kubectl get pods -n kyverno
+  echo
+  echo "--- policy-reporter pods ---"
+  mise exec -- kubectl get pods -n policy-reporter
   if mise exec -- kubectl get namespace authz > /dev/null 2>&1; then
     echo
     echo "--- authz (spicedb) pods ---"

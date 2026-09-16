@@ -1,35 +1,41 @@
-# Tier 1 — Flux reconciling raw manifests
+# Tier 1 — Helm chart and the platform/app split
 
-Builds on [tier 0](../tier-0/README.md) (hand-applied raw manifests) by introducing GitOps
-reconciliation itself, before anything else changes. The manifests are identical to tier 0's; the only
-new concept is that Flux, not a human running `kubectl apply`, keeps the cluster in sync with this repo.
+Builds on [tier 0](../tier-0/README.md) (Flux + a deployer tool, raw manifests) by introducing the core
+lesson of this whole progression: **chart-authoring and values-authoring are different jobs**, decoupled
+by publishing the chart to an OCI registry.
 
 ## What this tier demonstrates
 
-* **`flux-operator` + `FluxInstance`** (`kind-cluster/flux.tf`): installs Flux via its OCI-hosted
-  operator chart, then a `FluxInstance` CR tells `flux-operator` which controllers to run and which git
-  repository/path to sync (`tier-1/manifests`, this GitHub repo, `main` branch).
-  `flux-operator` translates that `sync` block into a `GitRepository` + `Kustomization` automatically —
-  there's no need to hand-write those objects.
-* **Same raw manifests as tier 0** (`manifests/namespace-apps.yaml`,
-  `manifests/deployment-archetype-backend.yaml`, `manifests/service-archetype-backend.yaml`): still no
-  Helm, still a hardcoded image tag.
-* **The lesson**: "deploying" now means committing a change to `manifests/` and pushing — Flux notices
-  and reconciles it, rather than a human running `kubectl apply` by hand. Drift between the cluster and
-  the repo is now detected and corrected automatically.
+* **Platform engineering owns a Helm chart** (`charts/archetype-backend/`): a `Deployment` + `Service`
+  template, published to `oci://ghcr.io/magnusp/charts/archetype-backend:<semver>` by
+  `.github/workflows/publish-chart.yaml`.
+* **The chart is tracked by an `OCIRepository`** (`clusters/kind/ocirepository-archetype-backend.yaml`),
+  polled on Flux's normal interval — no event-driven composition yet, that's tier 2.
+* **Application team owns deployment parameters, but not yet a publishing pipeline for them**: the
+  `HelmRelease` (`clusters/kind/helmrelease-archetype-backend.yaml`) sources its chart directly via
+  `chartRef: {kind: OCIRepository, name: archetype-backend}` and carries the app's values inline under
+  `spec.values`. `apps-source/values.yaml` still documents what those values should be, but at this tier
+  it's a reference a human copies from, not something CI publishes.
+* **What's gone from tier 0**: the raw `Deployment`/`Service` manifests and the deployer tool's role in
+  templating them. The chart is now the only source of the workload's shape; the app team (or the
+  deployer tool acting on its behalf) can no longer diverge from the platform's container/probe/resource
+  conventions baked into the chart template.
 
 ## Directory layout
 
-* `kind-cluster/` — OpenTofu stack: `kind_cluster` + `flux-operator`/`FluxInstance` only, no Kyverno.
-* `manifests/` — the same plain Kubernetes objects as tier 0, now with a `kustomization.yaml` so Flux's
-  `Kustomization` controller can apply them as a unit.
-* `apps-source/` — `Dockerfile` and static content for the demo app (still built and pushed by hand).
+* `kind-cluster/` — OpenTofu stack (kind cluster named `tier-1` + Flux, no Kyverno).
+* `charts/archetype-backend/` — the platform-owned chart.
+* `clusters/kind/` — `namespace-apps.yaml`, `ocirepository-archetype-backend.yaml`,
+  `helmrelease-archetype-backend.yaml`.
+* `apps-source/` — `Dockerfile`, static content, and `values.yaml` (reference only at this tier).
 
 ## Getting started
 
 ```sh
-cd tier-1/kind-cluster
+cd tier-1
 mise install
+
+cd kind-cluster
 ./cluster.sh up      # Create the kind cluster (named tier-1), bootstrap Flux, verify health
 ./cluster.sh check
 ./cluster.sh down
@@ -38,26 +44,26 @@ mise install
 ### Verify
 
 ```sh
-kubectl get kustomization -n flux-system
-kubectl get pods -n apps
+kubectl get ocirepository -n flux-system archetype-backend
+kubectl get helmrelease -n flux-system archetype-backend-demo
+kubectl get deploy -n apps apps-archetype-backend-demo
 ```
 
-Edit `manifests/deployment-archetype-backend.yaml`, commit and push, then watch Flux pick it up:
-
-```sh
-flux reconcile kustomization flux -n flux-system --with-source
-kubectl get deploy -n apps archetype-backend-demo -o jsonpath='{.spec.template.spec.containers[0].image}'
-```
+To roll out a new chart version, run `.github/workflows/publish-chart.yaml` with a bumped SemVer tag,
+then bump `clusters/kind/ocirepository-archetype-backend.yaml`'s `spec.ref.tag` to match and commit it;
+Flux picks up the new chart on its next poll (or `flux reconcile source oci archetype-backend`).
 
 ## Progressing to tier 2
 
-Tier 2 replaces the raw manifests with a Helm chart, introducing the platform/app split:
+Tier 2 removes the need for the app team to hand-copy values or wait for a poll interval:
 
-1. Platform engineering authors `charts/archetype-backend/` and publishes it to GHCR by SemVer.
-2. `manifests/deployment-archetype-backend.yaml` and `manifests/service-archetype-backend.yaml` are
-   deleted — the chart is now the only source of the workload's shape.
-3. A `HelmRelease` sourced from that chart (via `chartRef: {kind: OCIRepository}`) replaces the raw
-   objects in the synced directory, with the app's values inline in the `HelmRelease` for now.
+1. `apps-source/values.yaml` becomes something CI publishes — `.github/workflows/publish-app-values.yaml`
+   pushes it to `oci://ghcr.io/magnusp/apps/archetype-backend-values:latest` after bumping `image.tag`.
+2. `clusters/kind/ocirepository-archetype-backend-values.yaml` tracks that artifact.
+3. `clusters/kind/artifactgenerator-archetype-backend.yaml` composes the chart and the published values
+   into an `ExternalArtifact`, and the `HelmRelease`'s `chartRef` switches from the raw chart
+   `OCIRepository` to that `ExternalArtifact` — giving immediate, event-driven reconciliation whenever
+   either changes, and letting the app team deploy without a single git commit to this repository.
 
 See [`tier-2/README.md`](../tier-2/README.md) for the full detail, and the root
 [README](../README.md#tiers) for the overall progression.

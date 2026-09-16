@@ -42,8 +42,8 @@ resource "kubectl_manifest" "flux_instance" {
         networkPolicy = true
       }
       # The repository is public, so no pullSecret is needed to clone it.
-      # GHCR chart pulls (OCIRepository sources) are a separate concern —
-      # see clusters/kind/ocirepository-archetype-backend.yaml.
+      # This syncs flux_git_path (tier-0/manifests) as a Kustomization —
+      # plain Deployment/Service/Namespace YAML, no Helm involved yet.
       sync = var.flux_git_repository == "" ? null : {
         kind = "GitRepository"
         url  = var.flux_git_repository

@@ -1,10 +1,6 @@
 # Kyverno platform policy: verifies that the actor who pushed/built the
 # container image or values artifact has 'deploy' permission on the target
 # workload according to SpiceDB ReBAC relations.
-#
-# Scoped directly to the 'apps' namespace for now. Tier 5 retrofits this to
-# match on the governance.platform.io/managed label instead, so the policy
-# generalizes to any number of opt-in application workspaces.
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -19,8 +15,9 @@ spec:
           - resources:
               kinds:
                 - Deployment
-              namespaces:
-                - apps
+              namespaceSelector:
+                matchLabels:
+                  governance.platform.io/managed: "true"
       context:
         - name: imageData
           imageRegistry:

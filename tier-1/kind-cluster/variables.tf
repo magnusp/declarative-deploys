@@ -37,5 +37,5 @@ variable "flux_git_branch" {
 variable "flux_git_path" {
   description = "Path within the git repository containing the cluster's Flux manifests."
   type        = string
-  default     = "tier-1/manifests"
+  default     = "tier-1/clusters/kind"
 }

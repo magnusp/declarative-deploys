@@ -1,35 +1,36 @@
-# Tier 3 — App-published values via OCI
+# Tier 3 — SpiceDB ReBAC admission gate
 
-Builds on [tier 2](../tier-2/README.md) (Helm chart + platform/app split) by letting the application
-team deploy without ever committing to this cluster repository: they publish a values OCI artifact, and
-Flux composes it with the platform chart automatically.
+Builds on [tier 2](../tier-2/README.md) (app-published values via OCI) by adding an authorization check
+at admission time: only actors with a `deploy` relationship on the target service, according to a
+SpiceDB ReBAC graph, are allowed to have their Deployment admitted.
 
 ## What this tier demonstrates
 
-* **App values become an OCI artifact**: `apps-source/values.yaml` is no longer committed into
-  `clusters/kind/` (as it was, inline, in tier 2). Instead it's published as
-  `oci://ghcr.io/magnusp/apps/archetype-backend-values:latest` by
-  `.github/workflows/publish-app-values.yaml`, which also bumps `image.tag` to the newly built commit
-  SHA.
-* **Composition via `ArtifactGenerator`**
-  (`clusters/kind/artifactgenerator-archetype-backend.yaml`): Flux's `source-watcher` merges the
-  platform chart (`OCIRepository/archetype-backend`) with the app's published values
-  (`OCIRepository/archetype-backend-values`) into a single `ExternalArtifact`.
-* **Event-driven reconciliation**: the `HelmRelease` (`clusters/kind/helmrelease-archetype-backend.yaml`)
-  now sources its chart from `chartRef: {kind: ExternalArtifact, ...}` instead of the OCI chart
-  directly. Whenever either the chart version or the values artifact changes, a new `ExternalArtifact`
-  revision is generated and the `HelmRelease` upgrades immediately — no polling interval to wait out,
-  and no git commit for the app team to make.
+* **Kyverno enters the picture** (`kind-cluster/kyverno.tf`): a Flux-managed `HelmRelease` sourced from
+  Kyverno's OCI chart. This is the first tier with an admission controller.
+* **Ephemeral in-cluster SpiceDB** (`clusters/kind/spicedb-operator.yaml`, `spicedb-operator-rbac.yaml`,
+  `spicedb-cluster.yaml`): the SpiceDB Operator is reconciled from its upstream GitRepository, and a
+  memory-backed `SpiceDBCluster` is created in the `authz` namespace.
+* **Human-readable fixtures** (`fixtures/spicedb/schema.zed`, `fixtures/spicedb/relationships.txt`):
+  a `Job` (`clusters/kind/spicedb-fixture-job.yaml`) loads these into SpiceDB on cluster bring-up.
+  `scripts/spicedb-fixture.sh` lets you edit and re-apply them, or check permissions directly.
+* **The admission gate** (`clusters/kind/clusterpolicy-spicedb-authz.yaml`): a Kyverno `ClusterPolicy`
+  that reads the `dev.authz.app.deployer` label off the Deployment's container image (stamped by
+  `publish-app-values.yaml` in CI) and calls SpiceDB's `/v1/permissions/check` API. If the deployer
+  doesn't have `deploy` permission on the target service, the Deployment is rejected.
+* **Deliberately not yet generalized**: this policy is scoped directly to the `apps` namespace
+  (`namespaces: [apps]`) rather than an opt-in label. Tier 4 introduces
+  `governance.platform.io/managed` label scoping and retrofits this policy to use it, once there's a
+  second governance concern to justify generalizing.
 
 ## Directory layout
 
 Same as tier 2, plus:
 
-* `clusters/kind/ocirepository-archetype-backend-values.yaml` — tracks the `:latest` values artifact.
-* `clusters/kind/artifactgenerator-archetype-backend.yaml` — the chart+values composition.
-
-`apps-source/values.yaml` remains in the repo as the source the app team edits before running
-`publish-app-values.yaml`, but it is no longer referenced directly by any `clusters/kind/` manifest.
+* `kind-cluster/kyverno.tf` — Kyverno bootstrap.
+* `clusters/kind/spicedb-operator.yaml`, `spicedb-operator-rbac.yaml`, `spicedb-cluster.yaml`,
+  `spicedb-fixture-job.yaml`, `clusterpolicy-spicedb-authz.yaml` — the ReBAC stack.
+* `fixtures/spicedb/` and `scripts/spicedb-fixture.sh`.
 
 ## Getting started
 
@@ -38,35 +39,47 @@ cd tier-3
 mise install
 
 cd kind-cluster
-./cluster.sh up      # Create the kind cluster (named tier-3), bootstrap Flux, verify health
+./cluster.sh up      # Create the kind cluster (named tier-3), bootstrap Flux and Kyverno, verify health
 ./cluster.sh check
 ./cluster.sh down
 ```
 
-### Simulate an application release
+### Verify the admission gate
 
-1. Run `.github/workflows/build-app-image.yaml` on your target commit.
-2. Run `.github/workflows/publish-app-values.yaml` with `image_tag` set to that commit SHA.
-3. Watch Flux pick it up without any commit to this repository:
+```sh
+# Port-forward SpiceDB's HTTP API
+kubectl port-forward -n authz svc/spicedb 8443:8443
 
-   ```sh
-   kubectl get ocirepository -n flux-system archetype-backend-values
-   kubectl get externalartifact -n flux-system archetype-backend-demo
-   kubectl get helmrelease -n flux-system archetype-backend-demo
-   kubectl get deploy -n apps apps-archetype-backend-demo \
-     -o jsonpath='{.spec.template.spec.containers[0].image}'
-   ```
+# magnusp is granted deploy permission by the seeded fixtures
+../scripts/spicedb-fixture.sh check magnusp
+
+# unauthorized-dev has no relationship to the service and will be denied
+../scripts/spicedb-fixture.sh check unauthorized-dev
+
+# Inspect the running deployment
+kubectl get deploy -n apps apps-archetype-backend-demo
+```
+
+To see the gate actually reject a deploy, edit `fixtures/spicedb/relationships.txt` to remove
+`magnusp`'s membership, re-apply with `./scripts/spicedb-fixture.sh apply`, then trigger a new values
+publish — the `HelmRelease` upgrade will fail admission.
 
 ## Progressing to tier 4
 
-Tier 4 adds a SpiceDB ReBAC admission gate:
+Tier 4 adds:
 
-1. **Kyverno** (`kind-cluster/kyverno.tf`) is introduced as the admission controller.
-2. **SpiceDB** (`clusters/kind/spicedb-operator.yaml`, `spicedb-cluster.yaml`) runs ephemerally
-   in-cluster, seeded from human-readable fixtures (`fixtures/spicedb/`).
-3. `clusters/kind/clusterpolicy-spicedb-authz.yaml` checks, at admission time, whether the actor who
-   published the values artifact (`dev.authz.app.deployer` label, now stamped by
-   `publish-app-values.yaml`) has `deploy` permission on the target service.
+1. **Governance label scoping**: `namespace-apps.yaml` gains the `governance.platform.io/managed: "true"`
+   label, and this tier's `clusterpolicy-spicedb-authz.yaml` is retrofitted to match on that label
+   (`namespaceSelector`) instead of a hardcoded namespace name — making the policy reusable across any
+   number of opt-in application workspaces.
+2. **Image revision integrity**: `clusterpolicy-disallow-manual-image-revision.yaml` (blocks forged
+   annotations) plus a namespaced Kyverno `Policy` packaged inside the chart itself
+   (`charts/archetype-backend/templates/policy.yaml`) that injects the real
+   `org.opencontainers.image.revision` at admission time.
+3. **Image base ancestor verification**: `clusterpolicy-verify-image-nginx-ancestor.yaml` cryptographically
+   verifies the deployed image descends from an approved `nginx:1.27` base, regardless of intermediate
+   build layers.
+4. **Policy Reporter**: a dashboard and SQLite-backed audit trail for all Kyverno policy decisions.
 
 See [`tier-4/README.md`](../tier-4/README.md) for the full detail, and the root
 [README](../README.md#tiers) for the overall progression.

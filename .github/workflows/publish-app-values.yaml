@@ -1,6 +1,6 @@
-# Relevant from tier-3 onward (see README.md#tiers) — publishes the values OCI
-# artifact that tier-3+ ArtifactGenerators compose with the chart. Not needed
-# for tier-0/tier-1/tier-2, which have no values-publishing pipeline.
+# Relevant from tier-2 onward (see README.md#tiers) — publishes the values OCI
+# artifact that tier-2+ ArtifactGenerators compose with the chart. Not needed
+# for tier-0/tier-1, which have no values-publishing pipeline.
 name: Bump archetype-backend values
 
 on:
@@ -27,9 +27,9 @@ jobs:
       - name: Set up mise-managed tools
         uses: jdx/mise-action@v4.3.0
 
-      - name: Set image tag in tier-5/apps-source/values.yaml
+      - name: Set image tag in tier-4/apps-source/values.yaml
         run: |
-          yq -i '.image.tag = strenv(IMAGE_TAG)' tier-5/apps-source/values.yaml
+          yq -i '.image.tag = strenv(IMAGE_TAG)' tier-4/apps-source/values.yaml
         env:
           IMAGE_TAG: ${{ inputs.image_tag }}
 
@@ -47,7 +47,7 @@ jobs:
         id: push
         run: |
           flux push artifact "oci://ghcr.io/${{ github.repository_owner }}/apps/archetype-backend-values:latest" \
-            --path="./tier-5/apps-source" \
+            --path="./tier-4/apps-source" \
             --source="${{ github.server_url }}/${{ github.repository }}" \
             --revision="${{ github.ref_name }}@sha1:${{ github.sha }}" \
             --annotations="org.opencontainers.image.revision=${{ github.sha }}" \

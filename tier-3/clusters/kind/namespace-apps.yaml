@@ -1,4 +1,6 @@
 # Dedicated application workspace namespace for showcase workloads.
+# Not yet label-scoped for governance opt-in — clusterpolicy-spicedb-authz.yaml
+# is hardcoded to this namespace name. Label-based opt-in arrives in tier 4.
 apiVersion: v1
 kind: Namespace
 metadata:

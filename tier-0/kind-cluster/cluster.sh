@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Stands up or tears down the local kind cluster via OpenTofu, and applies the
-# raw manifests in ../manifests/ directly with kubectl. There is no
-# reconciler here — re-running `up` (or `kubectl apply`) is the only way
-# changes to ../manifests/ reach the cluster.
+# Stands up or tears down the local kind cluster and Flux bootstrap via OpenTofu.
 #
 # Usage:
-#   ./cluster.sh up       Create the cluster and kubectl apply ../manifests/.
+#   ./cluster.sh up       Create the cluster and apply the OpenTofu stack.
 #   ./cluster.sh down     Destroy the OpenTofu stack and the cluster.
-#   ./cluster.sh check    Wait for node readiness and print pod status.
+#   ./cluster.sh check    Wait for Flux to become ready and report status.
+#
+# The repository is public, so Flux needs no credentials to clone it and
+# sync tier-0/manifests/.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
@@ -26,14 +26,17 @@ kubeconfig_env() {
 check() {
   kubeconfig_env
 
-  echo "Waiting for cluster nodes..."
-  mise exec -- kubectl wait --for=condition=Ready nodes --all --timeout=180s
+  echo "Waiting for flux-system pods..."
+  mise exec -- kubectl wait --for=condition=Ready pods --all -n flux-system --timeout=180s
+
+  echo "Waiting for FluxInstance to become Ready..."
+  mise exec -- kubectl wait --for=condition=Ready fluxinstance/flux -n flux-system --timeout=180s
 
   echo
-  echo "--- apps namespace pods ---"
-  mise exec -- kubectl get pods -n apps 2>/dev/null || echo "(namespace 'apps' not applied yet)"
+  echo "--- flux-system pods ---"
+  mise exec -- kubectl get pods -n flux-system
   echo
-  echo "Cluster is healthy."
+  echo "Cluster and Flux bootstrap are healthy."
 }
 
 [ $# -eq 1 ] || usage
@@ -43,9 +46,6 @@ case "$1" in
     mise install
     mise exec -- tofu init
     mise exec -- tofu apply -auto-approve
-    kubeconfig_env
-    echo "Applying ../manifests/ by hand..."
-    mise exec -- kubectl apply -f ../manifests/
     check
     ;;
   down)

@@ -110,6 +110,22 @@ This document records the chronological development, architectural trade-offs, a
         hardcoded to `tier-5/` paths, since only tier-5 has the full publishing pipeline; each workflow
         notes the tier it becomes relevant at. The root `README.md` absorbed the tier index (formerly a
         separate `TIERS.md`) as its "Tiers" section, so there is a single entry point into the repository.
+*   **Collapse tier-0 into tier-1 to match a real baseline**: *Renumber to a five-tier progression
+    (tier-0 through tier-4)*
+    *   **Problem**: The six-tier progression above started from a "worst case" of raw, hand-applied
+        manifests with no Flux at all. That doesn't match the environment this showcase is meant to
+        prepare people for: Flux is already reconciling a cluster repository there, and a custom
+        in-house deployer tool already automates getting manifests into it — triggered by a merge to an
+        app repo's default branch, it optionally builds/tags a Docker image and optionally templates
+        manifests and git-commits them into the Flux-managed repo. Starting from raw `kubectl apply`
+        taught a lesson (GitOps reconciliation) that this audience has already internalized.
+    *   **Solution**: Collapsed the old `tier-0` (raw manifests, hand-applied) and old `tier-1` (the
+        same manifests, now Flux-reconciled) into a single new `tier-0` that starts from "Flux + a
+        deployer tool already exist, but there's no platform/app split yet" — narrated entirely in
+        `tier-0/README.md`; the deployer tool itself is described in prose, not implemented in the repo.
+        Every subsequent tier renumbered down by one (old `tier-2`→`tier-1`, `tier-3`→`tier-2`,
+        `tier-4`→`tier-3`, `tier-5`→`tier-4`), so the progression is now five tiers, not six, and the
+        final governance tier lives at `tier-4/` instead of `tier-5/`.
 
 ---
 

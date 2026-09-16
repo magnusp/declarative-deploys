@@ -4,7 +4,7 @@
 # Usage:
 #   ./cluster.sh up       Create the cluster and apply the OpenTofu stack.
 #   ./cluster.sh down     Destroy the OpenTofu stack and the cluster.
-#   ./cluster.sh check    Wait for Flux to become ready and report status.
+#   ./cluster.sh check    Wait for Flux and Kyverno to become ready and report status.
 #
 # The repository is public, and the chart OCIRepository sources under
 # clusters/kind/ assume their GHCR packages are also public, so Flux needs
@@ -35,9 +35,28 @@ check() {
   echo "Waiting for FluxInstance to become Ready..."
   mise exec -- kubectl wait --for=condition=Ready fluxinstance/flux -n flux-system --timeout=180s
 
+  echo "Waiting for Kyverno HelmRelease to become Ready..."
+  mise exec -- kubectl wait --for=condition=Ready helmrelease/kyverno -n flux-system --timeout=180s
+
+  echo "Waiting for Kyverno pods..."
+  mise exec -- kubectl wait --for=condition=Ready pods --all -n kyverno --timeout=180s
+
+  if mise exec -- kubectl get namespace authz > /dev/null 2>&1; then
+    echo "Waiting for SpiceDB deployment in authz namespace..."
+    mise exec -- kubectl wait --for=condition=Available deployment/spicedb-spicedb -n authz --timeout=180s || true
+  fi
+
   echo
   echo "--- flux-system pods ---"
   mise exec -- kubectl get pods -n flux-system
+  echo
+  echo "--- kyverno pods ---"
+  mise exec -- kubectl get pods -n kyverno
+  if mise exec -- kubectl get namespace authz > /dev/null 2>&1; then
+    echo
+    echo "--- authz (spicedb) pods ---"
+    mise exec -- kubectl get pods -n authz
+  fi
   echo
   echo "Cluster and Flux bootstrap are healthy."
 }

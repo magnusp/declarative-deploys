@@ -141,19 +141,17 @@
       <thead>
         <tr>
           <th scope="col"></th>
-          <th scope="col" class="tier-head"><span class="tier-name">Tier 0</span><span class="tier-tag">Raw manifests</span></th>
-          <th scope="col" class="tier-head"><span class="tier-name">Tier 1</span><span class="tier-tag">+ Flux GitOps</span></th>
-          <th scope="col" class="tier-head"><span class="tier-name">Tier 2</span><span class="tier-tag">+ Helm chart split</span></th>
-          <th scope="col" class="tier-head"><span class="tier-name">Tier 3</span><span class="tier-tag">+ OCI values artifact</span></th>
-          <th scope="col" class="tier-head"><span class="tier-name">Tier 4</span><span class="tier-tag">+ SpiceDB ReBAC</span></th>
-          <th scope="col" class="tier-head"><span class="tier-name">Tier 5</span><span class="tier-tag">+ Kyverno governance</span></th>
+          <th scope="col" class="tier-head"><span class="tier-name">Tier 0</span><span class="tier-tag">Flux + deployer tool</span></th>
+          <th scope="col" class="tier-head"><span class="tier-name">Tier 1</span><span class="tier-tag">+ Helm chart split</span></th>
+          <th scope="col" class="tier-head"><span class="tier-name">Tier 2</span><span class="tier-tag">+ OCI values artifact</span></th>
+          <th scope="col" class="tier-head"><span class="tier-name">Tier 3</span><span class="tier-tag">+ SpiceDB ReBAC</span></th>
+          <th scope="col" class="tier-head"><span class="tier-name">Tier 4</span><span class="tier-tag">+ Kyverno governance</span></th>
         </tr>
       </thead>
       <tbody>
         <tr>
           <th scope="row">Config drift &amp; audit trail<span class="who">Developer vs. Platform</span></th>
-          <td class="cell"><span class="badge critical" title="kubectl apply/edit against the live cluster leaves no record of who changed what.">✕ critical</span></td>
-          <td class="cell"><span class="badge good" title="Flux reconciles from Git; the cluster state and its history are the same thing.">✓ resolved</span></td>
+          <td class="cell"><span class="badge good" title="Flux reconciles from Git, and the deployer tool's commits are the record of who deployed what and when.">✓ resolved</span></td>
           <td class="cell"><span class="badge good" title="Still Git-reconciled; chart and values changes are both tracked.">✓ resolved</span></td>
           <td class="cell"><span class="badge good" title="OCI artifacts carry digests and provenance even though app deploys skip a Git commit.">✓ resolved</span></td>
           <td class="cell"><span class="badge good">✓ resolved</span></td>
@@ -161,8 +159,7 @@
         </tr>
         <tr>
           <th scope="row">Ownership boundary<span class="who">Developer vs. Platform</span></th>
-          <td class="cell"><span class="badge critical" title="One set of manifests, no separation — anyone touching the file owns the whole deployment.">✕ critical</span></td>
-          <td class="cell"><span class="badge critical" title="Still one manifest set; Flux changes how it's applied, not who owns which part.">✕ critical</span></td>
+          <td class="cell"><span class="badge critical" title="One set of manifests, templated and committed by the deployer tool — no platform/app split yet, so anyone touching them owns the whole deployment.">✕ critical</span></td>
           <td class="cell"><span class="badge good" title="Platform owns the versioned chart in charts/; app team owns apps-source/values.yaml only.">✓ resolved</span></td>
           <td class="cell"><span class="badge good">✓ resolved</span></td>
           <td class="cell"><span class="badge good">✓ resolved</span></td>
@@ -170,8 +167,7 @@
         </tr>
         <tr>
           <th scope="row">Release cadence coupling<span class="who">Developer vs. Platform</span></th>
-          <td class="cell"><span class="badge critical" title="Any change, app or platform, means editing the same manifest.">✕ critical</span></td>
-          <td class="cell"><span class="badge critical" title="Same coupling — Flux doesn't decouple chart from app changes yet.">✕ critical</span></td>
+          <td class="cell"><span class="badge critical" title="Any change, app or platform, means the deployer tool re-templating and committing the same undifferentiated manifests.">✕ critical</span></td>
           <td class="cell"><span class="badge serious" title="Chart is versioned separately, but app deploys still require a Git commit to bump values.">△ emerging</span></td>
           <td class="cell"><span class="badge good" title="App team publishes image + values as OCI artifacts; ArtifactGenerator composes them with zero Git commits.">✓ resolved</span></td>
           <td class="cell"><span class="badge good">✓ resolved</span></td>
@@ -179,8 +175,7 @@
         </tr>
         <tr>
           <th scope="row">Deploy authorization<span class="who">Developer vs. Security</span></th>
-          <td class="cell"><span class="badge critical" title="Anyone with cluster access can deploy anything.">✕ critical</span></td>
-          <td class="cell"><span class="badge critical">✕ critical</span></td>
+          <td class="cell"><span class="badge critical" title="Anyone whose merge triggers the deployer tool can deploy anything; nothing checks who they are.">✕ critical</span></td>
           <td class="cell"><span class="badge critical">✕ critical</span></td>
           <td class="cell"><span class="badge serious" title="Deployer identity is now stamped into OCI labels, but nothing checks it yet.">△ emerging</span></td>
           <td class="cell"><span class="badge warning" title="Kyverno queries SpiceDB's /v1/permissions/check at admission time, but the gate is hardcoded to the apps namespace.">◐ partial</span></td>
@@ -188,8 +183,7 @@
         </tr>
         <tr>
           <th scope="row">Image / supply-chain trust<span class="who">Platform vs. Security</span></th>
-          <td class="cell"><span class="badge critical" title="Any image, from anywhere, can be hand-referenced in the manifest.">✕ critical</span></td>
-          <td class="cell"><span class="badge critical">✕ critical</span></td>
+          <td class="cell"><span class="badge critical" title="The deployer tool can build and tag an image from any Dockerfile; nothing verifies its contents or lineage at admission.">✕ critical</span></td>
           <td class="cell"><span class="badge serious" title="Images are built and versioned by CI, but nothing verifies their contents or lineage at admission.">△ emerging</span></td>
           <td class="cell"><span class="badge serious">△ emerging</span></td>
           <td class="cell"><span class="badge serious">△ emerging</span></td>
@@ -200,13 +194,12 @@
           <td class="cell"><span class="badge critical" title="No policy engine exists — nothing to scope.">n/a</span></td>
           <td class="cell"><span class="badge critical">n/a</span></td>
           <td class="cell"><span class="badge critical">n/a</span></td>
-          <td class="cell"><span class="badge critical">n/a</span></td>
           <td class="cell"><span class="badge warning" title="SpiceDB gate is hardcoded to the apps namespace — works, but every new namespace needs a policy change.">◐ partial</span></td>
           <td class="cell"><span class="badge good" title="All governance policies key off an opt-in namespace label, so platform-wide enforcement never surprises an unrelated team.">✓ resolved</span></td>
         </tr>
       </tbody>
       <tfoot>
-        <tr><td colspan="7">Source: this repo's tier-0 → tier-5 progression (see TIERS.md). "Developer" = application team, "Platform" = platform engineering, "Security" = the governance/authorization layer (Kyverno + SpiceDB).</td></tr>
+        <tr><td colspan="6">Source: this repo's tier-0 → tier-4 progression (see the root README's <a href="../README.md#tiers">Tiers</a> section). "Developer" = application team, "Platform" = platform engineering, "Security" = the governance/authorization layer (Kyverno + SpiceDB).</td></tr>
       </tfoot>
     </table>
   </div>

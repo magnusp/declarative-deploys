@@ -1,7 +1,8 @@
 # Dedicated application workspace namespace for showcase workloads.
-# Not yet label-scoped for governance opt-in — clusterpolicy-spicedb-authz.yaml
-# is hardcoded to this namespace name. Label-based opt-in arrives in tier 5.
+# Labelled with governance.platform.io/managed: "true" to opt-in to Kyverno policies.
 apiVersion: v1
 kind: Namespace
 metadata:
   name: apps
+  labels:
+    governance.platform.io/managed: "true"

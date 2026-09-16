@@ -1,6 +1,6 @@
-# Relevant from tier-2 onward (see README.md#tiers) — builds and publishes the app
-# image tier-2+ HelmReleases reference. Not needed for tier-0/tier-1, which
-# use a manually built/pushed image.
+# Relevant from tier-1 onward (see README.md#tiers) — builds and publishes the app
+# image tier-1+ HelmReleases reference. Not needed for tier-0, where the
+# deployer tool (see tier-0/README.md) builds and tags the image itself.
 name: Build app image
 
 on:
@@ -33,7 +33,7 @@ jobs:
         id: build
         uses: docker/build-push-action@v7.3.0
         with:
-          context: tier-5/apps-source
+          context: tier-4/apps-source
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/apps/archetype-backend:${{ github.sha }}
           labels: |
