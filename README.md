@@ -122,8 +122,12 @@ Technology referenced across the tiers, in the order a reader meets it.
   OCI sources — here, the platform chart and the application's values — into one merged artifact at
   reconcile time, inside the cluster. Introduced at tier 2, and the reason no CI-issued attestation can
   cover the artifact that actually deploys (see [Automated change approval](#automated-change-approval)).
-* **[Kyverno](https://kyverno.io/)**: a Kubernetes-native policy engine that validates, mutates, or
-  generates resources at admission time, without a general-purpose policy language. Introduced at tier 3.
+* **Admission controller**: a Kubernetes component that inspects every object the cluster is about to
+  create or update, and can allow, block, or modify it before that happens. Tier 3 is the first tier with
+  one.
+* **[Kyverno](https://kyverno.io/)**: a Kubernetes-native admission controller that validates, mutates, or
+  generates resources, using declarative rules rather than a general-purpose policy language. Introduced
+  at tier 3.
   * **`ClusterPolicy`**: a Kyverno policy that applies cluster-wide, scoped here by namespace or by a
     namespace label.
   * **`verifyImages`**: a Kyverno rule type that checks an OCI image's signature or attestations before
@@ -136,7 +140,12 @@ Technology referenced across the tiers, in the order a reader meets it.
   checks that run in CI, before publication, rather than at Kubernetes admission like Kyverno.
 * **[SpiceDB](https://authzed.com/spicedb)**: an open-source authorization database implementing
   relationship-based access control (ReBAC), queried here from a Kyverno `ClusterPolicy` to decide
-  whether an actor may deploy a given workload. Introduced at tier 3, run through the SpiceDB Operator.
+  whether an actor may deploy a given workload. Introduced at tier 3.
+  * **SpiceDB Operator** / **`SpiceDBCluster`**: the operator and the custom resource it manages that run
+    an ephemeral, in-cluster SpiceDB instance for this showcase, applied directly through OpenTofu rather
+    than through the git-synced manifests.
+  * **`zed`**: the schema language SpiceDB uses to define object types, relations, and permissions.
+    `fixtures/spicedb/schema.zed` is this repository's human-readable authorization model.
 * **ReBAC (relationship-based access control)**: an authorization model that grants permissions based on
   relationships between subjects and resources (for example, "user X has `deploy` on service Y"), rather
   than on roles or fixed rules.
@@ -144,6 +153,14 @@ Technology referenced across the tiers, in the order a reader meets it.
   Kyverno's `PolicyReport` results into a queryable history. Introduced at tier 4.
 * **GHCR (GitHub Container Registry)**: the OCI registry (`ghcr.io`) this repository publishes every
   container image, Helm chart, and values artifact to.
+* **SemVer (semantic versioning)**: the `MAJOR.MINOR.PATCH` tagging scheme this repository's platform
+  chart uses on GHCR, bumped through `publish-chart.yaml`.
+* **Attestation**: a signed, tamper-evident statement about an artifact, such as who built it, from what,
+  or whether a check passed. Distinct from a plain signature, which proves who signed an artifact but
+  carries no statement about it.
+* **Provenance**: an attestation's specific claim about where an artifact came from and how it was built.
+  Answers where an artifact came from, not whether anyone examined the change it carries — see
+  [Automated change approval](#automated-change-approval).
 * **[Sigstore](https://www.sigstore.dev/)**, **cosign**, and **Fulcio**: a keyless code-signing system.
   Cosign signs and verifies artifacts using a short-lived certificate that Fulcio issues from an OIDC
   identity, instead of a long-lived private key. Referenced in `docs/spikes/` as the mechanism behind
