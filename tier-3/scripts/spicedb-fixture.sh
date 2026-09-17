@@ -97,6 +97,33 @@ apply_fixtures() {
   write_relationships "${2:-${FIXTURES_DIR}/relationships.txt}"
 }
 
+revoke_relationship() {
+  # write_relationships only ever issues OPERATION_TOUCH (upsert) for lines
+  # present in relationships.txt — deleting a line and re-applying does NOT
+  # revoke the tuple, since TOUCH never removes anything not mentioned. To
+  # actually revoke a relationship, issue an explicit OPERATION_DELETE.
+  local subject_id="$1"
+  local relation="${2:-member}"
+  local resource_type="${3:-team}"
+  local resource_id="${4:-backend_core}"
+  local subject_type="${5:-user}"
+  echo "==> Revoking ${resource_type}:${resource_id}#${relation}@${subject_type}:${subject_id}..."
+  curl -s -f -X POST "${SPICEDB_ENDPOINT}/v1/relationships/write" \
+    -H "Content-Type: application/json" \
+    -H "${AUTH_HEADER}" \
+    -d "{
+      \"updates\": [{
+        \"operation\": \"OPERATION_DELETE\",
+        \"relationship\": {
+          \"resource\": { \"objectType\": \"${resource_type}\", \"objectId\": \"${resource_id}\" },
+          \"relation\": \"${relation}\",
+          \"subject\": { \"object\": { \"objectType\": \"${subject_type}\", \"objectId\": \"${subject_id}\" } }
+        }
+      }]
+    }" | jq .
+  echo "✔ Relationship revoked."
+}
+
 check_permission() {
   local user="$1"
   local service="${2:-apps-archetype-backend-demo}"
@@ -113,12 +140,16 @@ check_permission() {
 }
 
 usage() {
-  echo "Usage: $0 {apply [schema_path] [relationships_path]|schema [schema_path]|relationships [relationships_path]|check <user> [service]}"
+  echo "Usage: $0 {apply [schema_path] [relationships_path]|schema [schema_path]|relationships [relationships_path]|check <user> [service]|revoke <user> [relation] [resource_type] [resource_id] [subject_type]}"
   echo ""
   echo "Examples:"
   echo "  $0 apply                                   # Apply default schema.zed and relationships.txt"
   echo "  $0 check magnusp                           # Check if user magnusp can deploy apps-archetype-backend-demo"
   echo "  $0 check unauthorized-dev                  # Check unauthorized user"
+  echo "  $0 revoke magnusp                          # Revoke magnusp's team:backend_core#member relationship"
+  echo ""
+  echo "Note: 'apply' only ever upserts (OPERATION_TOUCH) — editing a tuple out"
+  echo "of relationships.txt and re-applying does NOT revoke it. Use 'revoke'."
   exit 1
 }
 
@@ -135,6 +166,10 @@ case "${1:-}" in
   check)
     [ $# -ge 2 ] || usage
     check_permission "$2" "${3:-apps-archetype-backend-demo}"
+    ;;
+  revoke)
+    [ $# -ge 2 ] || usage
+    revoke_relationship "$2" "${3:-}" "${4:-}" "${5:-}" "${6:-}"
     ;;
   *)
     usage
