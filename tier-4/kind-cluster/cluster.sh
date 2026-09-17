@@ -32,6 +32,18 @@ check() {
   echo "Waiting for flux-system pods..."
   mise exec -- kubectl wait --for=condition=Ready pods --all -n flux-system --timeout=180s
 
+  # The SpiceDB Operator's CRDs (notably SpiceDBCluster) are applied directly via
+  # OpenTofu (spicedb-operator.tf), independently of the git-synced flux-system
+  # Kustomization, precisely so the operator can install its CRDs without waiting
+  # on that Kustomization to succeed first — clusters/kind/spicedb-cluster.yaml
+  # instantiates a SpiceDBCluster, which can't be applied until those CRDs exist.
+  # On a cold cluster the git-synced Kustomization's first attempt will still fail
+  # for that reason; wait for the operator here, then force one reconciliation
+  # instead of waiting out kustomize-controller's own retry backoff.
+  echo "Waiting for the SpiceDB Operator bootstrap to become Ready..."
+  mise exec -- kubectl wait --for=condition=Ready kustomization/spicedb-operator -n flux-system --timeout=180s
+  mise exec -- flux reconcile kustomization flux-system --with-source --timeout=180s
+
   echo "Waiting for FluxInstance to become Ready..."
   mise exec -- kubectl wait --for=condition=Ready fluxinstance/flux -n flux-system --timeout=180s
 

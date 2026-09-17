@@ -6,8 +6,6 @@ resources:
   - ocirepository-archetype-backend-values.yaml
   - artifactgenerator-archetype-backend.yaml
   - helmrelease-archetype-backend.yaml
-  - spicedb-operator.yaml
-  - spicedb-operator-rbac.yaml
   - spicedb-cluster.yaml
   - spicedb-fixture-job.yaml
   - clusterpolicy-spicedb-authz.yaml
