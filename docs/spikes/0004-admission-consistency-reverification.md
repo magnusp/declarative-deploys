@@ -34,11 +34,17 @@ registry, so nothing can forge the annotation. This spike generalizes that appro
 
 For each fact the gate relies on, establish whether admission can observe it and re-verify it.
 
-The mechanism for moving verified facts into policy logic is confirmed. Kyverno adds a successfully
-verified attestation to the policy context under the name given in the `attestations` block, which makes
-its predicate fields available to later rules and to subsequent `apiCall` contexts. That is how an attested
-fact reaches a consistency check. It is also how `clusterpolicy-spicedb-authz.yaml` should obtain its
-subject identity, instead of reading the unsigned `dev.authz.app.deployer` OCI label it reads today.
+One mechanism for moving verified facts into policy logic looks promising. Kyverno appears to add a
+successfully verified attestation to the policy context under the name given in the `attestations` block,
+which would make its predicate fields available to later rules and to subsequent `apiCall` contexts. That
+would be how an attested fact reaches a consistency check, and how `clusterpolicy-spicedb-authz.yaml`
+obtains its subject identity instead of reading the unsigned `dev.authz.app.deployer` OCI label it reads
+today.
+
+This behavior comes from DeepWiki's analysis of the `kyverno/kyverno` repository rather than from primary
+documentation or a live cluster. Confirm it before relying on it. If the mechanism is narrower than
+described, this spike needs a different route for carrying verified facts into policy logic, and
+[spike 1](0001-provenance-chained-four-eyes.md) grows.
 
 Start with the facts already known to matter: the running image reference, the approval predicate covering
 that image, the values payload digest the composition consumed, and the identity of the publishing actor.

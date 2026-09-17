@@ -82,6 +82,18 @@ against the rendered `Deployment`, which is the shape
 [spike 4](0004-admission-consistency-reverification.md) exists. Or accept publication-side gating as tier
 2's limit. **Choosing between those two is the remaining open risk in this spike.**
 
+### Confirm the capability claims before scheduling
+
+The Kyverno and Flux behavior described in this section comes from DeepWiki's analysis of the
+`kyverno/kyverno` and `fluxcd/source-controller` repositories. It has not been checked against primary
+documentation or a live cluster.
+
+The load-bearing claim is that Kyverno names a verified attestation and exposes its predicate fields to
+later rules and to subsequent `apiCall` contexts. This spike's size assumes that works as described, and
+so does the approach [spike 4](0004-admission-consistency-reverification.md) takes to sourcing the SpiceDB
+subject identity. Confirm it first. If the mechanism turns out narrower, this spike grows and spike 4
+needs a different route for carrying verified facts into policy logic.
+
 ### Check the independence claim honestly
 
 An automated gate is not the author, but it is independent only if the author cannot influence it.
@@ -101,7 +113,7 @@ The repository already produces signed SLSA provenance for both artifacts with `
 and nothing consumes it. The signing infrastructure and the workflow permissions (`id-token: write` and
 `attestations: write`) are in place. Only the verification side is missing.
 
-Consuming that existing provenance is confirmed-viable work rather than an investigation, and it should
+Consuming that existing provenance is known-viable work rather than an investigation, and it should
 land before this spike starts. See the known-viable work section of the [index](README.md). It closes the
 arbitrary-image substitution path whether or not the approval gate gets built, and it gives this spike a
 working `verifyImages` rule to extend.

@@ -77,9 +77,14 @@ complete those checks must be.
 
 ## Known-viable work that precedes the spikes
 
-The two items in this section are not spikes, because they are no longer investigations. The mechanisms are
-confirmed and only the wiring is missing. Every spike becomes easier once they exist, and both are worth
-doing whether or not the approval gates are ever scheduled.
+The two items in this section are not spikes, because they are no longer investigations. The mechanisms
+exist and only the wiring is missing. Every spike becomes easier once they exist, and both are worth doing
+whether or not the approval gates are ever scheduled.
+
+One caveat applies to every capability claim in these documents. The Kyverno and Flux behavior described
+here comes from DeepWiki's analysis of the `kyverno/kyverno` and `fluxcd/source-controller` repositories,
+not from primary documentation or a live cluster. Confirm the claims before scheduling work that depends
+on them. [Spike 1](0001-provenance-chained-four-eyes.md) names the one that carries the most weight.
 
 Both workflows already produce signed Supply-chain Levels for Software Artifacts (SLSA) provenance with
 `push-to-registry: true`, and **nothing consumes it**. Neither `OCIRepository` carries a `verify:` block,

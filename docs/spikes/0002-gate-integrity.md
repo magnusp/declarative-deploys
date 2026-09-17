@@ -42,7 +42,8 @@ today, because `archetype-backend.name` resolves from `.Release.Name`, which the
 
 ### The signing identity
 
-This surface carries the most weight, and the mechanism is confirmed on both enforcement paths. An
+This surface carries the most weight, and a mechanism appears to exist on both enforcement paths, subject
+to the sourcing caveat the [index](README.md) records. An
 attestation means something only if the gated party cannot mint an equivalent one. Keyless Sigstore signing
 records the issuing workflow in the Fulcio certificate, and both consumers can pin on it:
 
