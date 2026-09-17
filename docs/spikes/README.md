@@ -23,6 +23,30 @@ Build-time provenance answers where the artifact came from. Neither answers whet
 change before it shipped.
 
 These spikes investigate automated pre-exposure gates that answer that third question without a human.
+The argument compressed into a conversation:
+
+> **Developer**: The image is signed and the build provenance is attested, so the deploy is approved,
+> right?
+>
+> **Auditor**: Those are different claims. Build-time provenance tells me the artifact came from your
+> workflow. It does not tell me anyone examined the change.
+>
+> **Developer**: The SpiceDB check runs at admission though. Doesn't that approve it?
+>
+> **Auditor**: That is deploy-time authorization. It tells me the actor was allowed to deploy. I still
+> need a change check: did anything examine what changed before it shipped?
+>
+> **Developer**: At tier 1 the pull request covered that. Tier 2 publishes an artifact instead, so there
+> is no pull request.
+>
+> **Auditor**: Then tier 2 dropped the control. To replace four-eyes review without a human, you need
+> something that issues an attestation when a check passes, and something at deploy time that refuses
+> the deploy without it.
+>
+> **Developer**: The app team's workflow could issue that attestation.
+>
+> **Auditor**: Then the gated party mints its own approval, and the control stops being a control. See
+> [spike 2](0002-gate-integrity.md).
 
 ## Two lifecycles, one gap
 
@@ -57,6 +81,20 @@ What each tier runs determines where a gate can be enforced, which gives the spi
 * **Tier 4 generalizes the gate and records its decisions.** Label-scoped governance
   (`governance.platform.io/managed`) applies one gate across any number of application workspaces, and
   Policy Reporter gives the gate's decisions durable storage.
+
+## Three terms these documents keep overloading
+
+**"Approval" means two different things.** In the code and configuration lifecycle it means a human
+reviewer approving a pull request. In the deploy lifecycle it means a machine-issued attestation that a
+check passed. These spikes name the lifecycle whenever the distinction matters, and a reader should too.
+
+**"Provenance" does not imply examination.** Build-time provenance and a change check answer different
+questions, and the tier READMEs keep them separate. Treating a provenance attestation as evidence of
+approval is the most common way to misread the gap these spikes address.
+
+**"Gate" is overloaded.** These documents reserve pre-exposure gate for a control that blocks a change
+before production, and name compensating controls (such as automatic rollback) explicitly rather than
+calling them gates.
 
 ## Architectural assumption
 

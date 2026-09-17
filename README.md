@@ -88,7 +88,6 @@ change-approval gate today.
   relevant at.
 * [`docs/spikes/`](docs/spikes/README.md): drafts of proposed investigations into automated change
   approval for tiers 2 through 4. See [Automated change approval](#automated-change-approval).
-* [`CONTEXT.md`](CONTEXT.md): glossary of the domain language used across these documents.
 
 ---
 
