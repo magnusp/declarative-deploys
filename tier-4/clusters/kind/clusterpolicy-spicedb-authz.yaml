@@ -6,7 +6,6 @@ kind: ClusterPolicy
 metadata:
   name: spicedb-attested-deploy-authz
 spec:
-  validationFailureAction: Enforce
   background: false
   rules:
     - name: check-spicedb-deployer-permission
@@ -28,7 +27,15 @@ spec:
             jmesPath: "imageData.configData.config.Labels.\"dev.authz.app.deployer\" || imageData.configData.config.Labels.\"org.opencontainers.image.vendor\" || ''"
         - name: spiceDbCheck
           apiCall:
-            urlPath: "http://spicedb.authz.svc.cluster.local:8443/v1/permissions/check"
+            # apiCall.urlPath only ever addresses the Kubernetes API server;
+            # calling an arbitrary in-cluster service requires service.url.
+            service:
+              url: "http://spicedb.authz.svc.cluster.local:8443/v1/permissions/check"
+              # SpiceDB requires the preshared key configured on the
+              # SpiceDBCluster's secretName (spicedb-preshared-key).
+              headers:
+                - key: Authorization
+                  value: "Bearer showcase-authz-key"
             method: POST
             data:
               - key: consistency
@@ -45,17 +52,18 @@ spec:
                   object:
                     objectType: "user"
                     objectId: "{{ deployer }}"
-      preconditions:
-        all:
-          # Only enforce when the workload image contains our deployer metadata
-          - key: "{{ deployer }}"
-            operator: NotEquals
-            value: ""
       validate:
+        failureAction: Enforce
         message: "Deployment Rejected by SpiceDB: Actor '{{ deployer }}' does not have 'deploy' permissions on service '{{ request.object.metadata.name }}'."
         deny:
           conditions:
-            all:
+            # Fail closed: deny both when no deployer identity is present on
+            # the image (nothing to authorize) and when SpiceDB doesn't grant
+            # 'deploy' permission to whatever identity is present.
+            any:
+              - key: "{{ deployer }}"
+                operator: Equals
+                value: ""
               - key: "{{ spiceDbCheck.permissionship }}"
                 operator: NotEquals
                 value: "PERMISSIONSHIP_HAS_PERMISSION"

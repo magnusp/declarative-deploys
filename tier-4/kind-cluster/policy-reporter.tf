@@ -84,8 +84,10 @@ resource "kubectl_manifest" "policy_reporter_helm_release" {
         ui = {
           enabled = true
         }
-        kyvernoPlugin = {
-          enabled = true
+        plugin = {
+          kyverno = {
+            enabled = true
+          }
         }
       }
     }
