@@ -61,20 +61,20 @@ earlier tiers.
 
 ## Automated change approval
 
-Decoupling deploys from git commits costs something that is easy to miss. At tiers 0 and 1 the
-application team commits to git, so every change travels through a pull request and somebody other than
-the author approves it before it merges — four-eyes review, with the git history as its evidence. Nobody
-designed that control; it fell out of the delivery mechanism.
+Decoupling deploys from git commits removes a control that is easy to overlook. At tiers 0 and 1 the
+application team commits to git, so every change travels through a pull request, and someone other than
+the author approves it before it merges. Four-eyes review is the control, and the git history is the
+evidence. The delivery mechanism supplies both.
 
-Tier 2 replaces the delivery mechanism, and the control disappears with it. Publishing an OCI artifact
-*is* the deploy, so there is no pull request against the thing that deploys and nobody to approve it.
-Tiers 3 and 4 add authorization (*was this actor allowed?*) and build provenance (*where did this
-artifact come from?*), but neither answers *was this change examined before it shipped?*
+Tier 2 replaces the delivery mechanism, and the control disappears with it. Publishing an OCI artifact is
+the deploy, so no pull request exists against the thing that deploys, and no one approves it. Tiers 3 and
+4 add authorization, which answers whether the actor was allowed, and build provenance, which answers
+where the artifact came from. Neither answers whether anyone examined the change before it shipped.
 
-[`docs/spikes/`](docs/spikes/README.md) holds time-boxed investigation drafts into automated
-pre-exposure gates that carry that approval forward without a human in the loop, framed against ISO/IEC
-27001:2022 Annex A Clause 8. They are drafts of proposed work, not implemented capability — nothing in
-any tier enforces a change-approval gate today.
+[`docs/spikes/`](docs/spikes/README.md) holds time-boxed investigation drafts into automated pre-exposure
+gates that carry that approval forward without a human. They are framed against ISO/IEC 27001:2022 Annex
+A, Clause 8. They describe proposed work rather than implemented capability: no tier enforces a
+change-approval gate today.
 
 ---
 

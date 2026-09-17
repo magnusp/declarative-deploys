@@ -1,115 +1,134 @@
-# Context
+# Declarative Deploys
 
-Glossary of the domain language used across this repository's documentation. Terms only — the
-progression narrative lives in [`docs/spikes/README.md`](docs/spikes/README.md), and decisions live in
+Context for a showcase repository that demonstrates decoupled GitOps as a progression of five tiers. This
+glossary covers the compliance vocabulary the progression needs, because tier 2 removes a change-approval
+control that no later tier restores.
+
+The progression narrative lives in [`docs/spikes/README.md`](docs/spikes/README.md). Decisions live in
 [`docs/adr/`](docs/adr/).
 
-## Framing
+## Language
 
-### Spike
+### Investigation
 
-A time-boxed investigation, not an implementation. Two kinds are tracked separately, because their
-definitions of "done" differ:
+**Spike**:
+A time-boxed investigation that produces a recommendation or a gap analysis, never shipped code. Work whose
+mechanism is already confirmed is implementation, not a spike.
+_Avoid_: task, story, epic
 
-* **Tech spike** — ends in a recommendation or a working proof-of-concept.
-* **Compliance spike** — ends in a gap analysis against named controls, not code.
+**Tech spike**:
+A spike that ends in a technical recommendation or a proof-of-concept.
+_Avoid_: technical investigation, POC ticket
 
-Work whose mechanism is already confirmed is not a spike. It is implementation, however small.
+**Compliance spike**:
+A spike that ends in a gap analysis against named controls.
+_Avoid_: audit task, compliance review
 
-### Tier-design gap
+**Tier-design gap**:
+A shortcoming of the tier pattern itself, which any real adopter of the pattern inherits. Spikes target
+these.
+_Avoid_: bug, flaw, technical debt
 
-A shortcoming of the tier *pattern*: it has no automated control for something, and any real adopter of
-the pattern inherits the gap. This is what spikes target.
+**Showcase artifact**:
+A simplification that exists only because this repository demonstrates rather than runs, such as an
+in-memory datastore or a plaintext demo credential. Documented, never spiked.
+_Avoid_: shortcut, hack, known issue
 
-### Showcase artifact
+### Controls
 
-A deliberate simplification that exists only because this repository is a demonstration — in-memory
-datastores, plaintext demo credentials, single-node storage, or conventions left unenforced. A real
-adoption would do otherwise, so it is not spike material. It is still documented, alongside the
-automated control it stands in for, so a reader can tell "conceptual here" from "missing from the
-pattern".
+**Four-eyes principle**:
+The requirement that someone other than the change author approves a change before it takes effect. Tiers 0
+and 1 satisfy it through pull request review.
+_Avoid_: peer review, sign-off, dual control
 
-One observation can split across both. The plaintext SpiceDB preshared key is a showcase artifact,
-whereas "how does an enforcement point authenticate to the authorization service without a human
-handling the credential?" is a tier-design gap. Spike the design question, and document the shortcut.
+**Change check**:
+A control that answers whether a change was examined before it shipped. Tier 2 removes this obligation and
+no later tier restores it.
+_Avoid_: review, validation, QA
 
-## Controls
+**Build-time provenance**:
+A verifiable record of how an artifact was built and from what, such as a Supply-chain Levels for Software
+Artifacts (SLSA) attestation. Answers where an artifact came from, not whether anyone examined it.
+_Avoid_: build metadata, audit trail
 
-### Four-eyes principle
+**Deploy-time authorization**:
+A control that answers whether the acting identity may deploy a given workload. Tier 3 implements it as a
+relationship-based access control (ReBAC) check against SpiceDB.
+_Avoid_: permission check, access control
 
-Someone other than the change author approves the change before it takes effect. At tiers 0 and 1 this
-is satisfied incidentally by pull request review, with the git history as its evidence.
+**Pre-exposure gate**:
+A control that stops a non-conforming change before it reaches production, as distinct from one that limits
+the damage afterward. Canary deployment with automatic rollback is not one.
+_Avoid_: guardrail, gate, check
 
-### Change check
+### Mechanisms
 
-An independent check on *what changed* before it ships. Answers **was this change examined?** Satisfied
-by an automated policy gate, a progressive-delivery health check, or human review. This is the
-obligation tier 2 removes and no later tier restores.
+**Enforcement point**:
+The component that allows, blocks, or modifies a change at the moment it is applied. At tiers 3 and 4, the
+Kyverno admission webhook.
+_Avoid_: policy engine, admission controller
 
-### Build-time provenance
+**Fact producer**:
+The upstream component that creates the evidence an enforcement point evaluates, such as a continuous
+integration workflow or a signer. An enforcement point cannot supply a fact that no producer created.
+_Avoid_: attestor, signer, source
 
-A verifiable trail of how an artifact was built and from what, such as a SLSA provenance attestation or
-base-image ancestry. Answers **where did this come from?**
+**Gate integrity**:
+The property that the party whose change a gate judges cannot alter that gate. It covers both the gate
+definition and the gate's signing identity.
+_Avoid_: policy security, tamper protection
 
-### Deploy-time authorization
+### Lifecycles
 
-Whether the acting identity is permitted to deploy this workload — the SpiceDB ReBAC admission gate.
-Answers **was this actor allowed?**
+**Code and configuration lifecycle**:
+The path taken by application code, the platform chart, cluster manifests, and the checked-in `values.yaml`.
+Always gated behind a pull request with multiple reviewers.
+_Avoid_: source lifecycle, dev workflow
 
-These three are distinct obligations and none substitutes for another. The tier READMEs keep them
-separate, and documentation here follows suit.
+**Deploy lifecycle**:
+The path taken by the act of publishing the values artifact that rolls a new image into the cluster. Carries
+one change classification and involves no human approval.
+_Avoid_: release, rollout, promotion
 
-### Pre-exposure gate
+## Flagged ambiguities
 
-A control that prevents a non-conforming change from reaching production, as opposed to one that bounds
-the damage after exposure. Canary deployment with automatic rollback is not a pre-exposure gate; it is a
-compensating control.
+**"Approval" means two different things.** In the code and configuration lifecycle it means a human
+reviewer approving a pull request. In the deploy lifecycle it means a machine-issued attestation that a
+check passed. Always name the lifecycle when the distinction matters.
 
-## Mechanisms
+**"Provenance" does not imply examination.** Build-time provenance and a change check answer different
+questions, and the repository's tier READMEs keep them separate. Treating a provenance attestation as
+evidence of approval is the most common way to misread the gap.
 
-### Enforcement point
-
-The component that can allow, block, or modify a change at the moment it is applied — at tiers 3 and 4,
-the Kyverno admission webhook.
-
-### Fact producer
-
-The upstream component that creates the evidence an enforcement point evaluates, such as a CI workflow
-or a signer. An enforcement point can only enforce facts a fact producer actually produced; it cannot
-retroactively supply a check that never happened.
-
-### Gate integrity
-
-The property that the party whose change a gate judges cannot alter that gate. It has two halves: the
-**gate definition**, which lives on a platform-owned path protected by path-scoped review requirements,
-and the **gate's signing identity**, which is bound to a specific platform-owned workflow so that no
-other workflow can mint an equivalent-looking attestation. A gate the gated party can weaken is not a
-weaker control; it is not a control.
-
-## Lifecycles
-
-Changes in tiers 2 through 4 travel two separate paths, with different controls and different
-classifications. Conflating them is the most common way to misread the gap.
-
-### Code and configuration lifecycle
-
-Application code, the `Dockerfile`, the platform chart, cluster manifests, and the checked-in
-`values.yaml`. Always gated behind a pull request with multiple reviewers. Human four-eyes review is
-retained here and is not in question.
-
-### Deploy lifecycle
-
-The act of publishing the values OCI artifact that rolls a new image into the cluster. Carries a single
-change classification, involves no human approval, and is the lifecycle the spikes target.
-
-The two are less cleanly separated than they appear, because the values artifact that deploys is not the
-values file anyone reviewed.
+**"Gate" is overloaded.** Reserve pre-exposure gate for controls that block a change before production, and
+name compensating controls explicitly.
 
 ## Reference
 
-### Annex A Clause 8
+Control references in this repository's documentation point at ISO/IEC 27001:2022 Annex A, Clause 8
+("Technological controls"). No certification is in scope here. The framing gives the documentation a
+well-known reference point instead of bespoke compliance language.
 
-Control references in these documents point at ISO/IEC 27001:2022 Annex A, Clause 8 ("Technological
-controls") — the control family most relevant to high-velocity continuous delivery. No real
-certification is in scope for this repository; the framing gives the documentation a well-known
-reference point instead of bespoke compliance language.
+## Example dialogue
+
+**Developer**: The image is signed and the build provenance is attested, so the deploy is approved, right?
+
+**Auditor**: Those are different claims. Build-time provenance tells me the artifact came from your
+workflow. It does not tell me anyone examined the change.
+
+**Developer**: The SpiceDB check runs at admission though. Doesn't that approve it?
+
+**Auditor**: That is deploy-time authorization. It tells me the actor was allowed to deploy. I still need a
+change check: did anything examine what changed before it shipped?
+
+**Developer**: At tier 1 the pull request covered that. Tier 2 publishes an artifact instead, so there is no
+pull request.
+
+**Auditor**: Then tier 2 dropped the control. To replace four-eyes review without a human, you need a fact
+producer that issues an attestation when a check passes, and an enforcement point that refuses the deploy
+without it.
+
+**Developer**: The app team's workflow could issue that attestation.
+
+**Auditor**: Then the gated party mints its own approval. That breaks gate integrity, and the control stops
+being a control.
