@@ -5,3 +5,4 @@ terraform.tfstate.backup
 *.tfstate.*
 *.tfvars
 kind-config
+tier-*-config
