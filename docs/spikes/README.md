@@ -51,8 +51,8 @@ What each tier runs determines where a gate can be enforced, which gives the spi
   (GHCR) path bypasses CI, and tier 2's `OCIRepository` carries no `verify:` block, so Flux pulls and
   deploys the result. **Tier 2 cannot host a bypass-resistant gate.**
 * **Tier 3 makes admission gates possible.** Kyverno arrives. The cluster can stop trusting the publication
-  path and instead require a valid attestation at admission. This is what turns the approach in
-  [ADR-0001](../adr/0001-gate-attests-inputs-admission-verifies-consistency.md) from advisory into
+  path and instead require a valid attestation at admission. This is what turns the
+  [architectural assumption](#architectural-assumption) all five spikes share from advisory into
   enforceable.
 * **Tier 4 generalizes the gate and records its decisions.** Label-scoped governance
   (`governance.platform.io/managed`) applies one gate across any number of application workspaces, and
@@ -60,20 +60,21 @@ What each tier runs determines where a gate can be enforced, which gives the spi
 
 ## Architectural assumption
 
-All five spikes assume the approach that
-[ADR-0001](../adr/0001-gate-attests-inputs-admission-verifies-consistency.md) records: **CI attests the
-inputs, and admission re-verifies consistency.**
+All five spikes assume the same approach: **CI attests the inputs, and admission re-verifies
+consistency.**
 
 This matters because `ArtifactGenerator` composes the platform chart with the application values into an
 `ExternalArtifact` inside the cluster, at reconcile time. The artifact that deploys never exists in CI, so
-no CI-issued signature covers it directly. Rendering the composition in CI regresses the tier 2 premise.
-Signing the `ExternalArtifact` in the cluster places the signer inside the system it protects. Attesting
-inputs and re-verifying at admission preserves runtime composition and keeps the signing identity outside
-the cluster.
-
-Every spike inherits the cost of that choice: **the completeness of the admission-time consistency checks
-bounds the gate's strength.** [Spike 4](0004-admission-consistency-reverification.md) establishes how
-complete those checks must be.
+no CI-issued signature covers it directly. Two alternatives were considered and rejected. Rendering the
+composition in CI would produce one attested object identical to what deploys, but it would abandon
+runtime composition and regress the tier 2 premise that publishing an artifact is the deploy. Signing the
+`ExternalArtifact` in the cluster after composition would cover the object that actually deploys, but it
+would place the signing identity inside the system it protects, which makes gate integrity much harder to
+establish. Attesting inputs and re-verifying at admission preserves runtime composition and keeps the
+signing identity outside the cluster, at a cost every spike inherits: **the completeness of the
+admission-time consistency checks bounds the gate's strength, not the strength of the signature.** Any
+input fact that admission fails to re-verify is a fact the gate does not enforce.
+[Spike 4](0004-admission-consistency-reverification.md) establishes how complete those checks must be.
 
 ## Known-viable work that precedes the spikes
 

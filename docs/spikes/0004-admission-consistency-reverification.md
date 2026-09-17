@@ -14,8 +14,8 @@ Which consistency checks must run at admission for CI-attested inputs to bind th
 
 ## Why the gap exists
 
-This spike follows directly from the consequence that
-[ADR-0001](../adr/0001-gate-attests-inputs-admission-verifies-consistency.md) records. CI attests the
+This spike follows directly from the cost of the
+[architectural assumption](README.md#architectural-assumption) all five spikes share: CI attests the
 inputs, but `ArtifactGenerator` composes the chart and the values into an `ExternalArtifact` inside the
 cluster. The object that reaches the API server is therefore assembled after every signature was issued. An
 attestation on the inputs constrains the deployed object only through the checks that admission performs.

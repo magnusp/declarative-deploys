@@ -4,8 +4,8 @@ Context for a showcase repository that demonstrates decoupled GitOps as a progre
 glossary covers the compliance vocabulary the progression needs, because tier 2 removes a change-approval
 control that no later tier restores.
 
-The progression narrative lives in [`docs/spikes/README.md`](docs/spikes/README.md). Decisions live in
-[`docs/adr/`](docs/adr/).
+The progression narrative and its architectural decisions live in
+[`docs/spikes/README.md`](docs/spikes/README.md).
 
 ## Language
 

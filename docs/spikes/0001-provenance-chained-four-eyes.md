@@ -77,10 +77,10 @@ The two inputs need different mechanisms, and the difference between them is est
 The limit on the values artifact is therefore a single claim: the platform's publish workflow signed this
 artifact. That is strong provenance of origin with no evaluation of approval state. Carrying approval facts
 through to enforcement requires one of two choices. Either encode them where admission can re-verify them
-against the rendered `Deployment`, which is the shape
-[ADR-0001](../adr/0001-gate-attests-inputs-admission-verifies-consistency.md) records and the reason
-[spike 4](0004-admission-consistency-reverification.md) exists. Or accept publication-side gating as tier
-2's limit. **Choosing between those two is the remaining open risk in this spike.**
+against the rendered `Deployment`, which is the [architectural assumption](README.md#architectural-assumption)
+all five spikes share and the reason [spike 4](0004-admission-consistency-reverification.md) exists. Or
+accept publication-side gating as tier 2's limit. **Choosing between those two is the remaining open risk
+in this spike.**
 
 ### Confirm the capability claims before scheduling
 

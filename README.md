@@ -87,8 +87,7 @@ change-approval gate today.
   and values artifacts with build provenance attestations. Each workflow notes the tier it becomes
   relevant at.
 * [`docs/spikes/`](docs/spikes/README.md): drafts of proposed investigations into automated change
-  approval for tiers 2 through 4 — see [Automated change approval](#automated-change-approval) above.
-* [`docs/adr/`](docs/adr/): architecture decision records.
+  approval for tiers 2 through 4. See [Automated change approval](#automated-change-approval).
 * [`CONTEXT.md`](CONTEXT.md): glossary of the domain language used across these documents.
 
 ---
