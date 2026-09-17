@@ -26,6 +26,7 @@ commits (tier 2) → authorizing who can deploy (tier 3) → verifying what gets
 | [tier-4](tier-4/README.md) | Full governance | Opt-in policy scoping, image-revision integrity, base-image attestation, Policy Reporter. |
 
 Start at `tier-0` and work upward, or jump straight to `tier-4` if you want the full, final architecture.
+Unfamiliar with a term such as Kyverno, Flux, or SpiceDB? See the [Glossary](#glossary).
 
 ## Overview
 
@@ -88,6 +89,71 @@ change-approval gate today.
   relevant at.
 * [`docs/spikes/`](docs/spikes/README.md): drafts of proposed investigations into automated change
   approval for tiers 2 through 4. See [Automated change approval](#automated-change-approval).
+
+---
+
+## Glossary
+
+Technology referenced across the tiers, in the order a reader meets it.
+
+* **[kind](https://kind.sigs.k8s.io/)**: runs a local Kubernetes cluster inside Docker containers. Every
+  tier creates its own kind cluster, named `tier-N`.
+* **[OpenTofu](https://opentofu.org/)**: an open-source, community-governed fork of Terraform. Each
+  tier's `kind-cluster/` provisions the kind cluster and bootstraps Flux, Kyverno, and the other
+  cluster-level components through it.
+* **[Flux](https://fluxcd.io/)**: the GitOps toolkit that reconciles this repository's manifests, Helm
+  releases, and OCI artifacts into each cluster. Introduced at tier 0 through the
+  `flux-operator` chart and a `FluxInstance` custom resource, which tells `flux-operator` which
+  controllers to run and which git repository to sync.
+  * **`source-controller`**: the Flux controller that fetches and verifies `GitRepository` and
+    `OCIRepository` sources.
+  * **`source-watcher`**: a Flux extension controller that reconciles `ArtifactGenerator` objects,
+    composing multiple sources into one `ExternalArtifact`. Introduced at tier 2.
+  * **`helm-controller`**: the Flux controller that reconciles `HelmRelease` objects into installed or
+    upgraded Helm releases.
+  * **`kustomize-controller`**: the Flux controller that applies plain Kubernetes manifests from a
+    `Kustomization`, used at tier 0 before any chart exists.
+* **`OCIRepository`**: a Flux source type that tracks an OCI (Open Container Initiative) artifact in a
+  registry, such as a published Helm chart or a values payload, and re-pulls it on an interval or a
+  registry event. Introduced at tier 1.
+* **`HelmRelease`**: a Flux resource that installs or upgrades a Helm chart with a given set of values.
+  Present from tier 1 onward.
+* **`ArtifactGenerator`** / **`ExternalArtifact`**: a `source-watcher` resource pair that composes several
+  OCI sources — here, the platform chart and the application's values — into one merged artifact at
+  reconcile time, inside the cluster. Introduced at tier 2, and the reason no CI-issued attestation can
+  cover the artifact that actually deploys (see [Automated change approval](#automated-change-approval)).
+* **[Kyverno](https://kyverno.io/)**: a Kubernetes-native policy engine that validates, mutates, or
+  generates resources at admission time, without a general-purpose policy language. Introduced at tier 3.
+  * **`ClusterPolicy`**: a Kyverno policy that applies cluster-wide, scoped here by namespace or by a
+    namespace label.
+  * **`verifyImages`**: a Kyverno rule type that checks an OCI image's signature or attestations before
+    admitting a workload that references it.
+  * **`PolicyException`**: a Kyverno resource that exempts a matching resource from an otherwise
+    applicable policy.
+* **[Open Policy Agent](https://www.openpolicyagent.org/) (OPA)** and **`conftest`**: a general-purpose
+  policy engine and its command-line wrapper for testing structured configuration against Rego policies.
+  Referenced in tier 2 and in [`docs/spikes/`](docs/spikes/README.md) as a candidate for policy-as-code
+  checks that run in CI, before publication, rather than at Kubernetes admission like Kyverno.
+* **[SpiceDB](https://authzed.com/spicedb)**: an open-source authorization database implementing
+  relationship-based access control (ReBAC), queried here from a Kyverno `ClusterPolicy` to decide
+  whether an actor may deploy a given workload. Introduced at tier 3, run through the SpiceDB Operator.
+* **ReBAC (relationship-based access control)**: an authorization model that grants permissions based on
+  relationships between subjects and resources (for example, "user X has `deploy` on service Y"), rather
+  than on roles or fixed rules.
+* **[Policy Reporter](https://kyverno.github.io/policy-reporter/)**: a dashboard and API that aggregates
+  Kyverno's `PolicyReport` results into a queryable history. Introduced at tier 4.
+* **GHCR (GitHub Container Registry)**: the OCI registry (`ghcr.io`) this repository publishes every
+  container image, Helm chart, and values artifact to.
+* **[Sigstore](https://www.sigstore.dev/)**, **cosign**, and **Fulcio**: a keyless code-signing system.
+  Cosign signs and verifies artifacts using a short-lived certificate that Fulcio issues from an OIDC
+  identity, instead of a long-lived private key. Referenced in `docs/spikes/` as the mechanism behind
+  attestation verification; not yet wired into any tier's `OCIRepository` or Kyverno policy.
+* **SLSA (Supply-chain Levels for Software Artifacts)**: a framework and predicate format for build
+  provenance attestations. This repository's CI workflows already produce SLSA provenance through
+  `actions/attest-build-provenance`.
+* **OIDC (OpenID Connect)**: an identity layer that lets a workflow prove its identity to a third party,
+  such as GHCR or Fulcio, without a stored secret. GitHub Actions issues an OIDC token per workflow run,
+  which both the attestation and the registry login steps rely on.
 
 ---
 
