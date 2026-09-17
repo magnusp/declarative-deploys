@@ -23,6 +23,25 @@ SpiceDB ReBAC graph, are allowed to have their Deployment admitted.
   `governance.platform.io/managed` label scoping and retrofits this policy to use it, once there's a
   second governance concern to justify generalizing.
 
+## This tier strengthens deploy authorization, not the change check
+
+Tier 2's README distinguishes two obligations: an independent check on *the change* before it's
+published (which can be automated, sampled, or human — see tier 2 for the options), and authorization
+plus logging of *the deploy action*. Kyverno — a Kubernetes *admission controller*, meaning it inspects
+every object Kubernetes is about to create or update and can allow, block, or modify it before that
+happens — enters the picture here, but it only strengthens the second obligation, not the first.
+
+Specifically: the `clusterpolicy-spicedb-authz.yaml` `ClusterPolicy` runs at *admission time* (the
+moment a `Deployment` is submitted, before Kubernetes persists it) and calls out to **SpiceDB**, a
+*relationship-based access control (ReBAC)* system — instead of a fixed list of roles, it stores a
+graph of relationships (e.g. "`magnusp` can `deploy` `archetype-backend`") and answers permission
+questions by querying that graph. The policy asks SpiceDB **"is this identity allowed to deploy this
+service,"** and Kyverno logs the answer — that's deploy-time authorization and auditability. It has no
+way to answer **"was the values change checked before `magnusp` published it,"** because that's a fact
+about the change, not the actor, and nothing in this pipeline records it. A fully authorized deployer
+can still publish arbitrary, unchecked values and have them admitted — SpiceDB has no opinion on
+content, only on who pushed it.
+
 ## Directory layout
 
 Same as tier 2, plus:

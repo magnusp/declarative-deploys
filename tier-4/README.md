@@ -33,6 +33,43 @@ scoping, image-provenance verification, and a Policy Reporter dashboard.
   volume (`policy-reporter-sqlite-pvc`), giving governance decisions a queryable audit trail and web
   dashboard.
 
+## Still no check on the change itself — and what would actually close it
+
+Even at full governance, this tier doesn't add the control that's actually missing: an independent
+check on the values change before it's published (see tier 2 for why that doesn't have to mean human
+review). The two image-integrity policies here check **provenance of the image** — that its base
+layers descend from an approved `nginx:1.27`, and that its `image-revision` annotation genuinely
+matches the OCI config — not the *content* of the values artifact a deployer publishes. SpiceDB
+(tier 3) strengthens deploy-time authorization and logging; these policies strengthen build-time
+provenance (a documented, verifiable trail of how an artifact was built and from what). None of them
+check whether the change was reviewed, tested against policy, or covered by a rollback plan before it
+shipped, because no fact like that exists anywhere in this pipeline for Kyverno — the *admission
+controller* running these checks, meaning it inspects an object and can allow, block, or modify it
+right before Kubernetes accepts it — to verify.
+
+A real closing mechanism has to produce that fact first, then enforce it — the same two-step pattern
+this tier already uses for build provenance, and it works the same way regardless of which mitigation
+from tier 2 you actually adopt:
+
+1. **Produce a verifiable attestation that the chosen check passed.** An *attestation* is a signed,
+   tamper-evident statement about an artifact — the same concept `clusterpolicy-verify-image-nginx-ancestor.yaml`
+   already relies on for build provenance ("this image was built by this CI run from this source"),
+   just applied to a different claim. Whether the check you adopted from tier 2 is an automated
+   policy-as-code gate, a canary/rollback health check, or a human-reviewed PR, have that step sign a
+   custom attestation (using a tool like `cosign attest`, or GitHub's build provenance mechanism with a
+   custom predicate) — e.g. "passed policy gate `<name>` in run `<url>`" — and attach it to the
+   published OCI artifact.
+2. **Enforce it at admission.** Extend a `ClusterPolicy` here to use Kyverno's `verifyImages` feature
+   (which checks that a required attestation exists and is validly signed before letting the image
+   through) for that specific attestation type, the same way [`clusterpolicy-verify-image-nginx-ancestor.yaml`](clusters/kind/clusterpolicy-verify-image-nginx-ancestor.yaml)
+   already verifies SLSA build provenance — reject the Deployment if the attestation is missing or
+   doesn't verify.
+
+Kyverno can only enforce facts that were actually produced and signed somewhere upstream; it can't
+retroactively supply a check that never happened, automated or human. This repo doesn't implement
+either step — picking a check (from tier 2's options) and wiring this attestation loop around it is
+the natural next tier if you're adapting this pattern for real use.
+
 ## Directory layout
 
 * [`kind-cluster/`](kind-cluster/): OpenTofu configuration that creates the kind cluster (named

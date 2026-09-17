@@ -21,6 +21,70 @@ Flux composes it with the platform chart automatically.
   revision is generated and the `HelmRelease` upgrades immediately — no polling interval to wait out,
   and no git commit for the app team to make.
 
+## ⚠️ Known risk introduced at this tier: no independent check on the change
+
+Frameworks like ISO/IEC 27001 (via Annex A controls such as **A.8.32 Change management** and
+**A.5.3 Segregation of duties**) treat this as two separate obligations: a change needs some
+independent check before it reaches production, and the act of deploying it needs to be authorized and
+logged. Neither obligation actually requires a human to click "approve" on every change — the standard
+is risk-based, and "independent check" can be satisfied by automated gates as long as they're
+appropriately designed and the person who authored the change isn't also the one who can bypass them.
+Tiers 0 and 1 happen to satisfy the first obligation via git-commit/PR review (someone other than the
+author reviews the diff before it merges), but that's one implementation of the control, not the
+control itself.
+
+**This tier removes whatever independent check existed upstream, without replacing it with
+anything** — that's the actual gap, not "no human review" specifically. Deploy-time authorization and
+logging stay fine even here: whoever triggers `publish-app-values.yaml` is an authenticated, logged
+GitHub actor. What's missing is any check — human or automated — on *what* changed before
+`oci://ghcr.io/magnusp/apps/archetype-backend-values:latest` (an OCI artifact — the same
+container-registry mechanism used for images, here just holding a `values.yaml` instead) gets
+published and Flux deploys it.
+
+This is an acceptable trade-off for a demo focused on decoupling app deploys from git commits, but
+it's a real compliance gap, not a cosmetic one. It stays open later in this progression too:
+
+* **Tier 3 adds Kyverno, a Kubernetes *admission controller*** — software that sits in front of the
+  Kubernetes API and inspects every object before it's allowed to be created or updated ("admitted"),
+  with the power to approve, block, or modify it. Its SpiceDB-backed check strengthens **deploy-time
+  authorization** ("is this identity allowed to deploy this service") and gives it an audit trail — a
+  different control than a change check, and it doesn't substitute for one.
+* **Tier 4's Kyverno policies verify image provenance** (base-image lineage, unforged revision
+  annotations) — a fact about the artifact's *build history*, not about whether the values change was
+  checked before it shipped.
+
+**Mitigations that fit within this tier's own toolset, without borrowing Kyverno or SpiceDB from
+later tiers, roughly in order of how well they preserve multiple-deploys-a-day velocity:**
+
+* **Automated policy/schema checks as the gate.** `charts/archetype-backend/values.schema.json`
+  already constrains what's structurally valid — extend that idea with a CI step in
+  `publish-app-values.yaml` that runs policy-as-code checks (tools like `conftest`/Open Policy Agent
+  evaluate a machine-readable policy against a file and fail the pipeline if it doesn't comply) against
+  the rendered values before publishing. This is a deterministic, previously-approved check standing in
+  for per-change human review — appropriate for routine, low-risk value bumps.
+* **Machine-enforced segregation of duties.** Make sure the identity that performs the actual
+  `flux push artifact` is a pipeline/service identity, never a human's standing credentials — so no
+  individual author can single-handedly both write and ship a change outside the workflow, even
+  without a per-change reviewer.
+* **Progressive delivery with automated rollback as a compensating control.** Canary the
+  `HelmRelease` (Flux supports this natively — rolling a change out to a subset of replicas first,
+  then automatically completing or reverting the rollout based on health checks) and roll back
+  automatically on regression. This is a widely accepted substitute for pre-deploy human review in
+  high-velocity continuous deployment, since it bounds the blast radius of an unreviewed bad change
+  instead of trying to prevent it from ever shipping.
+* **Human review, synchronous or sampled.** Route the values bump through a real PR with a required
+  approving review (gates every change), or a GitHub Actions **environment with required reviewers**
+  (a GitHub-native setting that pauses a workflow job after it's triggered until a designated person
+  approves it — added via `environment: production` on the job that runs `flux push artifact`) — or,
+  for lower-risk changes, review a statistically meaningful sample after the fact rather than gating
+  every single one. This is the right tool when a change is high-risk or irreversible enough that
+  automated gates and rollback aren't sufficient on their own — not the default answer for every
+  deploy.
+
+This repo doesn't implement any of these (each has real operational cost to maintain), but picking
+one — matched to how risky your actual changes are — is the natural next step if you're adapting this
+tier's pattern for real use.
+
 ## Directory layout
 
 Same as tier 1, plus:
