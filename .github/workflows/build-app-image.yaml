@@ -1,6 +1,8 @@
 # Relevant from tier-1 onward (see README.md#tiers) — builds and publishes the app
-# image tier-1+ HelmReleases reference. Not needed for tier-0, where the
-# deployer tool (see tier-0/README.md) builds and tags the image itself.
+# image tier-1+ HelmReleases reference. At tier-0, the (prose-only, undescribed
+# in this repo) deployer tool optionally builds and tags the image itself; this
+# workflow isn't part of that story, and tier-0's manifests reference a
+# hand-built ":manual" tag that nothing here publishes.
 name: Build app image
 
 on:

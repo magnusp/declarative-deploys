@@ -24,8 +24,12 @@ what lets each one be read and run independently.
 
 ## Commands
 
-Tooling is version-pinned via `mise`, per tier (`tier-N/mise.toml` and `tier-N/kind-cluster/mise.toml`,
-scoped down to only what that tier needs — e.g. `tier-0/kind-cluster/mise.toml` has no `helm`).
+Tooling is version-pinned via `mise`, per tier (`tier-N/mise.toml` and `tier-N/kind-cluster/mise.toml`).
+The five `kind-cluster/mise.toml` files are currently identical (`helm`, `kind`, `kubectl`, `opentofu`,
+`yq`) — none are actually scoped down to what that specific tier needs, despite the isolation principle
+above; if you add a tier-specific tool dependency, add it only where it's used rather than assuming the
+others are already minimal. `tier-N/mise.toml` (the root-level one, tier-2+) does vary — tier-3/tier-4
+add `jq` for `scripts/spicedb-fixture.sh`.
 
 ```sh
 cd tier-N
@@ -57,7 +61,11 @@ SpiceDB fixture testing (tier-3 and tier-4 only; requires
 cd tier-N
 ./scripts/spicedb-fixture.sh check <username>   # query /v1/permissions/check for the 'deploy' permission
 ./scripts/spicedb-fixture.sh apply              # push fixtures/spicedb/schema.zed + relationships.txt
+./scripts/spicedb-fixture.sh revoke <username>  # explicitly delete a relationship tuple
 ```
+
+`apply` only ever upserts (`OPERATION_TOUCH`) — removing a tuple from `relationships.txt` and
+re-applying does **not** revoke it. Use `revoke` for that.
 
 Policy Reporter dashboard (tier-4 only):
 `kubectl port-forward -n policy-reporter svc/policy-reporter-ui 8080:8080`.
@@ -68,8 +76,12 @@ Within any given tier that has them, these concerns are deliberately kept separa
 the same actor in the same workflow:
 
 * **`tier-N/kind-cluster/`** — OpenTofu. Creates the kind cluster (named `tier-N`), then bootstraps
-  `flux-operator` (via a `FluxInstance` CR) plus whatever subset of Kyverno and Policy Reporter that
-  tier needs, as Flux-reconciled `OCIRepository`/`HelmRelease` pairs. Past cluster creation, resources
+  `flux-operator` (via a `FluxInstance` CR) plus whatever subset of Kyverno, Policy Reporter, and (tier-3+)
+  the SpiceDB Operator (`spicedb-operator.tf`) that tier needs, as Flux-reconciled `OCIRepository`/`HelmRelease`
+  pairs or, for the SpiceDB Operator specifically, a `GitRepository`/`Kustomization` pair applied directly
+  via `kubectl_manifest` rather than through the git-synced manifests — its CRDs must exist independently
+  of whether that git-synced `Kustomization` (which includes a `SpiceDBCluster` resource of that CRD) has
+  succeeded, or the two would deadlock each other on a cold cluster. Past cluster creation, resources
   are applied as `kubectl_manifest` YAML blocks, not native Terraform K8s resources — read the file
   before assuming a resource is a first-class `kubernetes_*`/`helm_release` type. `flux_git_path` points
   at that tier's own manifest directory (e.g. `tier-2/clusters/kind`), never another tier's.

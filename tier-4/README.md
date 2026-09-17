@@ -18,16 +18,26 @@ scoping, image-provenance verification, and a Policy Reporter dashboard.
      a namespaced Kyverno `Policy` packaged with the archetype chart itself. At admission time it queries
      the OCI registry for the container image configuration, extracts
      `org.opencontainers.image.revision`, and injects it into `spec.template.metadata.annotations`.
-* **Image base ancestor & layer verification**
+* **Image base ancestor & layer check**
   ([`clusters/kind/clusterpolicy-verify-image-nginx-ancestor.yaml`](clusters/kind/clusterpolicy-verify-image-nginx-ancestor.yaml)):
   inspects the container image filesystem configuration at admission time using Kyverno's
-  `imageRegistry` context, iterating across root filesystem layer hashes
-  (`imageData.configData.rootfs.diff_ids`) to cryptographically assert that the image is derived from an
-  approved `nginx:1.27` base image (`apps-source/Dockerfile`), regardless of intermediate build steps.
+  `imageRegistry` context, comparing root filesystem layer hashes (`imageData.configData.rootfs.diff_ids`)
+  against a hardcoded, known-good `nginx:1.27` base layer digest. **This is a layer-hash allowlist, not
+  a signature or attestation check** — it carries no cryptographic guarantee about who built the image
+  or whether it was tampered with, only that one of its layers matches a digest recorded in the policy,
+  and it goes stale whenever the `nginx:1.27` base image is rebuilt upstream. A real attestation-based
+  equivalent would use Kyverno's `verifyImages` feature against a signed SLSA provenance attestation —
+  see the bare-metal example near the bottom of this README for that shape. (An earlier version of this
+  policy did exactly that; it was later simplified to the digest-comparison approach in this repo's
+  history, and this description was updated to match what the policy actually does today.)
+* **One caveat that applies to all three policies above**: each only inspects
+  `spec.template.spec.containers[0]` — a second container in the pod spec is entirely unchecked.
 * **SpiceDB ReBAC, now label-scoped**: the admission gate introduced in tier 3
   (`clusterpolicy-spicedb-authz.yaml`) is retrofitted to match on the same
   `governance.platform.io/managed` label instead of a hardcoded `apps` namespace, consistent with the
-  other policies in this tier.
+  other policies in this tier. It fails closed: a Deployment whose image carries no
+  `dev.authz.app.deployer` label (stamped by `build-app-image.yaml`), or whose deployer lacks `deploy`
+  permission in SpiceDB, is rejected.
 * **Policy Reporter** (`kind-cluster/policy-reporter.tf`): a Flux-managed `HelmRelease` that persists
   policy execution history and violation reports in an embedded SQLite database backed by a persistent
   volume (`policy-reporter-sqlite-pvc`), giving governance decisions a queryable audit trail and web
@@ -52,18 +62,20 @@ this tier already uses for build provenance, and it works the same way regardles
 from tier 2 you actually adopt:
 
 1. **Produce a verifiable attestation that the chosen check passed.** An *attestation* is a signed,
-   tamper-evident statement about an artifact — the same concept `clusterpolicy-verify-image-nginx-ancestor.yaml`
-   already relies on for build provenance ("this image was built by this CI run from this source"),
-   just applied to a different claim. Whether the check you adopted from tier 2 is an automated
-   policy-as-code gate, a canary/rollback health check, or a human-reviewed PR, have that step sign a
-   custom attestation (using a tool like `cosign attest`, or GitHub's build provenance mechanism with a
-   custom predicate) — e.g. "passed policy gate `<name>` in run `<url>`" — and attach it to the
-   published OCI artifact.
-2. **Enforce it at admission.** Extend a `ClusterPolicy` here to use Kyverno's `verifyImages` feature
-   (which checks that a required attestation exists and is validly signed before letting the image
-   through) for that specific attestation type, the same way [`clusterpolicy-verify-image-nginx-ancestor.yaml`](clusters/kind/clusterpolicy-verify-image-nginx-ancestor.yaml)
-   already verifies SLSA build provenance — reject the Deployment if the attestation is missing or
-   doesn't verify.
+   tamper-evident statement about an artifact — the same concept the app image's build already uses
+   (`build-app-image.yaml`'s `actions/attest-build-provenance` step), just applied to a different
+   claim. Whether the check you adopted from tier 2 is an automated policy-as-code gate, a
+   canary/rollback health check, or a human-reviewed PR, have that step sign a custom attestation
+   (using a tool like `cosign attest`, or GitHub's `actions/attest` action with a custom
+   `predicate-type`/`predicate` — note this is a different action from `attest-build-provenance`, which
+   only produces SLSA provenance) — e.g. "passed policy gate `<name>` in run `<url>`" — and attach it to
+   the published OCI artifact.
+2. **Enforce it at admission.** Add a `ClusterPolicy` using Kyverno's `verifyImages` feature (which
+   checks that a required attestation exists and is validly signed before letting the image through)
+   for that specific attestation type — see the bare-metal keyless-Sigstore example near the bottom of
+   this README for the shape of a real `verifyImages` rule. Note this repo's own
+   `clusterpolicy-verify-image-nginx-ancestor.yaml` does **not** use `verifyImages` today (see above) —
+   it would need to be rewritten, not just extended, to enforce this attestation.
 
 Kyverno can only enforce facts that were actually produced and signed somewhere upstream; it can't
 retroactively supply a check that never happened, automated or human. This repo doesn't implement
@@ -73,7 +85,10 @@ the natural next tier if you're adapting this pattern for real use.
 ## Directory layout
 
 * [`kind-cluster/`](kind-cluster/): OpenTofu configuration that creates the kind cluster (named
-  `tier-4`) and bootstraps `flux-operator`, Kyverno, and Policy Reporter.
+  `tier-4`) and bootstraps `flux-operator`, Kyverno, Policy Reporter, and (`spicedb-operator.tf`) the
+  SpiceDB Operator — applied directly via OpenTofu rather than the git-synced manifests, so its CRDs
+  exist independently of whether the git-synced `Kustomization` (which includes a `SpiceDBCluster`
+  resource of that CRD) has succeeded yet.
 * [`charts/`](charts/): Platform-owned Helm chart, including the chart-packaged image-revision policy.
 * [`clusters/kind/`](clusters/kind/): Flux manifests — `OCIRepository`, `ArtifactGenerator`,
   `HelmRelease`, SpiceDB resources, and all governance `ClusterPolicy` objects.
@@ -92,7 +107,9 @@ cd tier-4
 mise install
 ```
 
-This installs `kind`, `opentofu`, `helm`, `kubectl`, `yq`, and `flux`.
+This installs `helm`, `yq`, `flux`, and `jq` (for `scripts/spicedb-fixture.sh`). `kind`, `opentofu`, and
+`kubectl` come from `tier-4/kind-cluster/mise.toml` instead — `./cluster.sh up` runs `mise install`
+there too, so you don't need a separate step for them.
 
 ### Cluster lifecycle
 
@@ -125,9 +142,9 @@ by publishing OCI artifacts. See the repository root [`.github/workflows/`](../.
 
    ```sh
    kubectl get helmrelease -n flux-system archetype-backend-demo
-   kubectl get pods -n apps -l app.kubernetes.io/instance=archetype-backend-demo
+   kubectl get pods -n apps -l app.kubernetes.io/instance=apps-archetype-backend-demo
    kubectl get deploy -n apps apps-archetype-backend-demo \
-     -o jsonpath='{.items[0].spec.template.spec.containers[0].image}'
+     -o jsonpath='{.spec.template.spec.containers[0].image}'
    ```
 
 To verify that the verified image revision was stamped on the running workload:
@@ -158,8 +175,11 @@ kubectl port-forward -n authz svc/spicedb 8443:8443
 # Check an unauthorized user
 ./scripts/spicedb-fixture.sh check unauthorized-dev
 
-# Edit fixtures/spicedb/relationships.txt or schema.zed, then apply:
+# Edit fixtures/spicedb/relationships.txt or schema.zed, then apply (upserts only):
 ./scripts/spicedb-fixture.sh apply
+
+# To actually revoke access (apply never removes a tuple, only adds/updates one):
+./scripts/spicedb-fixture.sh revoke magnusp
 ```
 
 ---

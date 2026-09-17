@@ -49,6 +49,15 @@ kubectl get helmrelease -n flux-system archetype-backend-demo
 kubectl get deploy -n apps apps-archetype-backend-demo
 ```
 
+No workflow publishes an image tagged `:latest` — `build-app-image.yaml` only ever pushes
+`:${{ github.sha }}` — so `helmrelease-archetype-backend.yaml`'s inline `image.tag: "latest"` will sit
+in `ImagePullBackOff` on a fresh cluster unless you build and load one yourself:
+
+```sh
+docker build -t ghcr.io/magnusp/apps/archetype-backend:latest ../apps-source
+kind load docker-image ghcr.io/magnusp/apps/archetype-backend:latest --name tier-1
+```
+
 To roll out a new chart version, run `.github/workflows/publish-chart.yaml` with a bumped SemVer tag,
 then bump `clusters/kind/ocirepository-archetype-backend.yaml`'s `spec.ref.tag` to match and commit it;
 Flux picks up the new chart on its next poll (or `flux reconcile source oci archetype-backend`).

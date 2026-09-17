@@ -1,7 +1,7 @@
 # Instance of the archetype-backend chart for the apps-source/ simulated
 # application. The chart comes straight from GHCR (OCIRepository/archetype-backend);
 # values are static and inline here, mirroring apps-source/values.yaml by hand.
-# There is no OCI values artifact or composition step yet — that arrives in tier 3.
+# There is no OCI values artifact or composition step yet — that arrives in tier 2.
 #
 # Reconciliation happens on Flux's poll interval (10m) rather than being event-driven,
 # since there's no ArtifactGenerator/ExternalArtifact watching for changes.

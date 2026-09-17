@@ -15,11 +15,13 @@ Flux composes it with the platform chart automatically.
   (`clusters/kind/artifactgenerator-archetype-backend.yaml`): Flux's `source-watcher` merges the
   platform chart (`OCIRepository/archetype-backend`) with the app's published values
   (`OCIRepository/archetype-backend-values`) into a single `ExternalArtifact`.
-* **Event-driven reconciliation**: the `HelmRelease` (`clusters/kind/helmrelease-archetype-backend.yaml`)
+* **Event-driven reconciliation, mostly**: the `HelmRelease` (`clusters/kind/helmrelease-archetype-backend.yaml`)
   now sources its chart from `chartRef: {kind: ExternalArtifact, ...}` instead of the OCI chart
-  directly. Whenever either the chart version or the values artifact changes, a new `ExternalArtifact`
-  revision is generated and the `HelmRelease` upgrades immediately — no polling interval to wait out,
-  and no git commit for the app team to make.
+  directly. `ArtifactGenerator` itself has no polling interval — it watches its sources — and
+  helm-controller reacts to a new `ExternalArtifact` revision immediately, bypassing the `HelmRelease`'s
+  own 10m interval. But the upstream `OCIRepository` for the `:latest` values tag still polls the
+  registry on its own interval to notice a new digest, so the whole chain isn't push-triggered
+  end-to-end — there's still up to one polling interval of latency between publishing and Flux noticing.
 
 ## ⚠️ Known risk introduced at this tier: no independent check on the change
 
@@ -66,12 +68,14 @@ later tiers, roughly in order of how well they preserve multiple-deploys-a-day v
   `flux push artifact` is a pipeline/service identity, never a human's standing credentials — so no
   individual author can single-handedly both write and ship a change outside the workflow, even
   without a per-change reviewer.
-* **Progressive delivery with automated rollback as a compensating control.** Canary the
-  `HelmRelease` (Flux supports this natively — rolling a change out to a subset of replicas first,
-  then automatically completing or reverting the rollout based on health checks) and roll back
-  automatically on regression. This is a widely accepted substitute for pre-deploy human review in
-  high-velocity continuous deployment, since it bounds the blast radius of an unreviewed bad change
-  instead of trying to prevent it from ever shipping.
+* **Progressive delivery with automated rollback as a compensating control.** Canary a rollout — shift
+  traffic to the new version gradually and automatically complete or revert it based on health checks —
+  using [Flagger](https://fluxcd.io/flagger/), a separate CNCF/Flux-family project (`HelmRelease` itself
+  only supports install/upgrade remediation with retries and rollback on failure, not canary traffic
+  shifting; Flagger additionally needs a service mesh or ingress controller to actually split traffic).
+  This is a widely accepted substitute for pre-deploy human review in high-velocity continuous
+  deployment, since it bounds the blast radius of an unreviewed bad change instead of trying to prevent
+  it from ever shipping.
 * **Human review, synchronous or sampled.** Route the values bump through a real PR with a required
   approving review (gates every change), or a GitHub Actions **environment with required reviewers**
   (a GitHub-native setting that pauses a workflow job after it's triggered until a designated person
@@ -126,11 +130,12 @@ cd kind-cluster
 Tier 3 adds a SpiceDB ReBAC admission gate:
 
 1. **Kyverno** (`kind-cluster/kyverno.tf`) is introduced as the admission controller.
-2. **SpiceDB** (`clusters/kind/spicedb-operator.yaml`, `spicedb-cluster.yaml`) runs ephemerally
-   in-cluster, seeded from human-readable fixtures (`fixtures/spicedb/`).
+2. **SpiceDB** (`kind-cluster/spicedb-operator.tf`, `clusters/kind/spicedb-cluster.yaml`) runs
+   ephemerally in-cluster, seeded from human-readable fixtures (`fixtures/spicedb/`).
 3. `clusters/kind/clusterpolicy-spicedb-authz.yaml` checks, at admission time, whether the actor who
-   published the values artifact (`dev.authz.app.deployer` label, now stamped by
-   `publish-app-values.yaml`) has `deploy` permission on the target service.
+   built the app image (`dev.authz.app.deployer` label, stamped by `build-app-image.yaml` — already
+   present on every image since tier 1, just unused until now) has `deploy` permission on the target
+   service.
 
 See [`tier-3/README.md`](../tier-3/README.md) for the full detail, and the root
 [README](../README.md#tiers) for the overall progression.

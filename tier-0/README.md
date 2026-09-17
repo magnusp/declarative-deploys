@@ -57,7 +57,7 @@ Simulate what the deployer tool would do on a merge — edit `manifests/deployme
 (e.g. bump the image tag), commit and push, then watch Flux pick it up:
 
 ```sh
-flux reconcile kustomization flux -n flux-system --with-source
+flux reconcile kustomization flux-system -n flux-system --with-source
 kubectl get deploy -n apps archetype-backend-demo -o jsonpath='{.spec.template.spec.containers[0].image}'
 ```
 

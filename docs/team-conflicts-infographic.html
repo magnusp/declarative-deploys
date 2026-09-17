@@ -107,6 +107,7 @@
   .badge.warning  { color: #8a6200; }
   .badge.serious  { color: #9a3c1c; }
   .badge.critical { color: var(--status-critical); }
+  .badge.na       { color: var(--text-muted); }
   @media (prefers-color-scheme: dark) {
     .badge.warning { color: var(--status-warning); }
     .badge.serious { color: var(--status-serious); }
@@ -134,6 +135,7 @@
       <div class="legend-item"><span class="dot serious"></span>Emerging risk</div>
       <div class="legend-item"><span class="dot warning"></span>Partially resolved</div>
       <div class="legend-item"><span class="dot good"></span>Resolved</div>
+      <div class="legend-item"><span class="dot" style="background: var(--text-muted);"></span>Not applicable</div>
     </div>
 
     <table>
@@ -177,7 +179,7 @@
           <th scope="row">Deploy authorization<span class="who">Developer vs. Security</span></th>
           <td class="cell"><span class="badge critical" title="Anyone whose merge triggers the deployer tool can deploy anything; nothing checks who they are.">✕ critical</span></td>
           <td class="cell"><span class="badge critical">✕ critical</span></td>
-          <td class="cell"><span class="badge serious" title="Deployer identity is now stamped into OCI labels, but nothing checks it yet.">△ emerging</span></td>
+          <td class="cell"><span class="badge serious" title="Deployer identity has been stamped into OCI image labels since tier 1's build-app-image.yaml; nothing checks it yet.">△ emerging</span></td>
           <td class="cell"><span class="badge warning" title="Kyverno queries SpiceDB's /v1/permissions/check at admission time, but the gate is hardcoded to the apps namespace.">◐ partial</span></td>
           <td class="cell"><span class="badge good" title="Same ReBAC gate, now opt-in via the governance.platform.io/managed label across any namespace.">✓ resolved</span></td>
         </tr>
@@ -191,9 +193,9 @@
         </tr>
         <tr>
           <th scope="row">Policy blast radius<span class="who">Platform vs. Developer</span></th>
-          <td class="cell"><span class="badge critical" title="No policy engine exists — nothing to scope.">n/a</span></td>
-          <td class="cell"><span class="badge critical">n/a</span></td>
-          <td class="cell"><span class="badge critical">n/a</span></td>
+          <td class="cell"><span class="badge na" title="No policy engine exists — nothing to scope.">n/a</span></td>
+          <td class="cell"><span class="badge na">n/a</span></td>
+          <td class="cell"><span class="badge na">n/a</span></td>
           <td class="cell"><span class="badge warning" title="SpiceDB gate is hardcoded to the apps namespace — works, but every new namespace needs a policy change.">◐ partial</span></td>
           <td class="cell"><span class="badge good" title="All governance policies key off an opt-in namespace label, so platform-wide enforcement never surprises an unrelated team.">✓ resolved</span></td>
         </tr>

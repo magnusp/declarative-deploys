@@ -48,7 +48,7 @@ This document records the chronological development, architectural trade-offs, a
     *   **Result**: Zero polling lag and native event-driven upgrades whenever either the chart or values artifact updates in GHCR.
 *   **[PR #11](https://github.com/magnusp/declarative-deploys/pull/11)**: *Remove cert-manager*
     *   **Context**: Evaluated cluster dependencies. The showcase workloads only use `Deployment` and `Service` without ingress or certificates.
-    *   **Decision**: Removed `cert-manager` from OpenTofu, Flux, and cluster health checks, speeding up cluster standup time to under 90 seconds.
+    *   **Decision**: Removed `cert-manager` from OpenTofu, Flux, and cluster health checks, reducing the number of components a cold cluster has to bring up. (No standup-time measurement was recorded for this change; treat any specific figure as unverified.)
 
 ---
 
@@ -82,7 +82,23 @@ This document records the chronological development, architectural trade-offs, a
         3.  **SpiceDB Operator via Flux**: Installed `authzed/spicedb-operator` using Flux `GitRepository` + `Kustomization` with explicit RBAC extensions (`spicedb-operator-rbac.yaml`).
         4.  **In-Cluster Ephemeral SpiceDB & Human-Readable Fixtures**: Deployed a `SpiceDBCluster` resource in namespace `authz` and an automated initialization `Job` that seeds schema (`schema.zed`) and relationship tuples (`relationships.txt`) from a ConfigMap.
         5.  **Kyverno Admission Policy**: Added `ClusterPolicy/spicedb-attested-deploy-authz` querying SpiceDB's `/v1/permissions/check` API to assert that the actor has `deploy` permissions before admitting the workload.
-        6.  **Cryptographic Base Image Lineage Policy**: Added `ClusterPolicy/verify-app-image-nginx-ancestor` using Kyverno's `verifyImages` to cryptographically verify GitHub SLSA v1 build provenance and enforce that deployed application containers are derived from an approved `nginx` base image.
+*   **[PR #18](https://github.com/magnusp/declarative-deploys/pull/18)**: *Add Kyverno verifyImages policy enforcing SLSA-attested nginx base image lineage in apps workspace*
+    *   **Decision**: Added `ClusterPolicy/verify-app-image-nginx-ancestor` using Kyverno's `verifyImages` with keyless Sigstore/Rekor attestors, cryptographically verifying GitHub SLSA v1 build provenance to enforce that deployed application containers are derived from an approved `nginx` base image. (This mechanism was replaced in PR #20 — see below.)
+
+---
+
+### Interim: Version Bumps and a Mechanism Replacement
+
+*   **[PR #19](https://github.com/magnusp/declarative-deploys/pull/19)**: *Add bare-metal and alternative delivery options with modern identity providers* — README-only, documenting non-GitHub-Actions delivery patterns.
+*   **[PR #20](https://github.com/magnusp/declarative-deploys/pull/20)**: *Bump tool versions, OpenTofu providers, SpiceDB, and verify image base layer ancestry*
+    *   **Decision**: Bumped Flux to `2.9.4` (from the `2.7.5` set in PR #8) and other pinned tool/provider versions.
+    *   **Also replaced `verify-app-image-nginx-ancestor`'s mechanism**: dropped the `verifyImages` +
+        keyless Sigstore/Rekor attestor approach from PR #18 in favor of an `imageRegistry` context plus a
+        JMESPath `deny` rule comparing `imageData.configData.rootfs.diff_ids` against two hardcoded base
+        layer digests. **This is a materially different, weaker guarantee** — a layer-hash allowlist, not
+        a signature or attestation check — and the policy's own header comment plus this file's Phase 5
+        entry above were not updated to reflect the change until a later verification pass caught the
+        discrepancy (see the entry below).
 
 ---
 
@@ -129,6 +145,52 @@ This document records the chronological development, architectural trade-offs, a
 
 ---
 
+### Phase 7: Verification Pass and Defect Remediation
+
+*   **Cross-checking every technical claim in the repo against upstream sources and live cluster
+    behavior surfaced that the SpiceDB admission gate had never actually worked**, in any tier, at any
+    point since PR #17 introduced it — masked because a precondition silently skipped the whole rule
+    whenever an image lacked a `dev.authz.app.deployer` label, and every image tested against it up to
+    this point lacked one (the values artifact published to GHCR pinned an image built before that label
+    existed). Underneath that mask were two more independent defects:
+    1.  `apiCall.urlPath` was used to address SpiceDB, an in-cluster HTTP service — `urlPath` only ever
+        addresses the Kubernetes API server and is mutually exclusive with `apiCall.service.url`, which
+        is what an external/in-cluster call requires.
+    2.  No `Authorization` header was sent, despite SpiceDB requiring the preshared key configured on its
+        `secretName`.
+    *   **Decision**: Fixed the `apiCall` to use `service.url` + the bearer token, and replaced the
+        skip-precondition with an explicit deny condition so a missing deployer identity is now denied
+        (fail-closed) rather than silently admitted (fail-open) — matching what the tier-3/4 READMEs had
+        claimed the gate did all along. Also added a `revoke` subcommand to `spicedb-fixture.sh`, since
+        `apply` only ever upserts relationships and the READMEs' own demonstration instructions ("edit
+        relationships.txt to remove a tuple, re-apply") could never have worked. Verified end to end on
+        both tier-3 and tier-4: an unauthorized deploy is now genuinely rejected at admission, and
+        recovers correctly once permission is restored.
+*   **Policy Reporter's Kyverno plugin was never actually installed**: `policy-reporter.tf` set
+    `kyvernoPlugin.enabled`, which isn't a key in policy-reporter chart 3.10.0 (the real path is
+    `plugin.kyverno.enabled`); Helm silently ignores unknown top-level keys. Fixed and confirmed the
+    plugin pod now starts.
+*   **`publish-app-values.yaml` and `publish-chart.yaml` ran `mise install` from the repository root**,
+    which has no `mise.toml`, so `flux` (unlike `yq`/`helm`, which happen to be preinstalled on GitHub's
+    runner image) was never actually installed; the resulting `flux: command not found` was masked by an
+    unpiped `flux push | tee`, surfacing two steps later as an opaque "subject-digest must be provided"
+    failure in the attestation step instead of where it actually happened. Fixed both workflows to run
+    `mise` from `tier-4/`, and added `pipefail` to the push step.
+*   **`spec.validationFailureAction`** on all four `ClusterPolicy` objects was migrated to
+    `spec.rules[].validate.failureAction`, per Kyverno's own deprecation notice (the old field still
+    functioned, but is being removed).
+*   Corrected several stale or false documentation claims discovered in the same pass: a false claim
+    that Flux natively supports canary rollouts (that's Flagger, a separate project); the
+    `clusterpolicy-verify-image-nginx-ancestor.yaml` header comment and multiple READMEs still describing
+    the PR #18 `verifyImages`/SLSA mechanism that PR #20 replaced; the deployer label being credited to
+    `publish-app-values.yaml` instead of `build-app-image.yaml` (the label the policy actually reads);
+    stale references to `spicedb-operator.yaml`/`spicedb-operator-rbac.yaml`, which had moved into
+    `kind-cluster/spicedb-operator.tf`; a broken `-l app.kubernetes.io/instance=` selector and a stray
+    `.items[0]` in a single-resource `kubectl get -o jsonpath`; and a few leftover "tier 3" references
+    from the tier-0/tier-1 renumbering.
+
+---
+
 ## Architectural Decision Summary Matrix
 
 | Decision Area | Previous Approach | Final Approach | Rationale |
@@ -139,6 +201,6 @@ This document records the chronological development, architectural trade-offs, a
 | **Policy Scope** | Single static `ClusterPolicy` in GitOps | Split: Platform Validation (`ClusterPolicy`) + Chart Mutation (`Policy`) | Guarantees tamper-resistance while making archetype charts self-contained. |
 | **Policy Reporting** | None (in-memory reports only) | Policy Reporter + Persistent SQLite (PVC) + Web UI | Persists policy reports and audit logs locally with zero external database dependencies. |
 | **Deployment Authorization** | Kubernetes RBAC on Flux machine account | Provenance Deployer Identity + SpiceDB ReBAC check | Enforces decentralized zero-trust access control without giving developers cluster credentials. |
-| **Base Image Lineage** | Unverified container base layers | Kyverno `verifyImages` with SLSA v1 Attestation | Cryptographically guarantees that all admitted workloads derive from trusted golden base images. |
-| **In-Cluster TLS** | `cert-manager` installed via Flux | Removed | Reduced cluster surface area and cut standup time in half. |
-| **Repository Structure** | Single flat directory tree at the final architecture | Six isolated `tier-N/` directories, each a complete standalone stack | Lets the platform/app split, GitOps, and governance concerns be learned and demoed incrementally instead of all at once. |
+| **Base Image Lineage** | Unverified container base layers | Kyverno `imageRegistry` context + hardcoded rootfs layer-digest allowlist (`clusterpolicy-verify-image-nginx-ancestor.yaml`) | Asserts a specific base layer digest is present. **Not** a signature or attestation check (PR #18's original `verifyImages` + SLSA approach was replaced by PR #20 without updating this row at the time) — carries no cryptographic guarantee about who built the image, and goes stale whenever the `nginx:1.27` base is rebuilt upstream. |
+| **In-Cluster TLS** | `cert-manager` installed via Flux | Removed | Reduced cluster surface area; no verified standup-time figure exists for this change. |
+| **Repository Structure** | Single flat directory tree at the final architecture | Five isolated `tier-N/` directories (`tier-0`…`tier-4`, after the tier-0/tier-1 collapse), each a complete standalone stack | Lets the platform/app split, GitOps, and governance concerns be learned and demoed incrementally instead of all at once. |
