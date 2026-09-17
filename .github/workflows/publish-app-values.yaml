@@ -1,3 +1,6 @@
+# Relevant from tier-2 onward (see README.md#tiers) — publishes the values OCI
+# artifact that tier-2+ ArtifactGenerators compose with the chart. Not needed
+# for tier-0/tier-1, which have no values-publishing pipeline.
 name: Bump archetype-backend values
 
 on:
@@ -21,12 +24,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.1
 
+      # Runs from tier-4/ so mise finds tier-4/mise.toml (flux2, yq) — there is
+      # no mise.toml at the repo root, so without this, tools not already
+      # preinstalled on the runner image (flux, unlike yq/helm) silently fail
+      # to install and later steps get "command not found".
       - name: Set up mise-managed tools
         uses: jdx/mise-action@v4.3.0
+        with:
+          working_directory: tier-4
 
-      - name: Set image tag in apps-source/values.yaml
+      - name: Set image tag in tier-4/apps-source/values.yaml
         run: |
-          yq -i '.image.tag = strenv(IMAGE_TAG)' apps-source/values.yaml
+          yq -i '.image.tag = strenv(IMAGE_TAG)' tier-4/apps-source/values.yaml
         env:
           IMAGE_TAG: ${{ inputs.image_tag }}
 
@@ -42,9 +51,13 @@ jobs:
       # interval, no git commit against clusters/kind/ needed.
       - name: Push values artifact to GHCR
         id: push
+        # pipefail: without it, a failing `flux push` still lets `tee`
+        # succeed, silently producing an empty digest/repository for the
+        # next step instead of failing this one where the real error is.
+        shell: bash --noprofile --norc -eo pipefail {0}
         run: |
           flux push artifact "oci://ghcr.io/${{ github.repository_owner }}/apps/archetype-backend-values:latest" \
-            --path="./apps-source" \
+            --path="./tier-4/apps-source" \
             --source="${{ github.server_url }}/${{ github.repository }}" \
             --revision="${{ github.ref_name }}@sha1:${{ github.sha }}" \
             --annotations="org.opencontainers.image.revision=${{ github.sha }}" \

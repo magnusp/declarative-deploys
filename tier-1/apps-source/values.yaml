@@ -1,0 +1,13 @@
+# archetype-backend chart values for this application. At this tier these are
+# hand-copied into clusters/kind/helmrelease-archetype-backend.yaml's inline
+# spec.values — there is no publishing pipeline for values yet (see tier 2).
+replicas: 1
+
+image:
+  repository: ghcr.io/magnusp/apps/archetype-backend
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+service:
+  port: 8080
+  targetPort: 80

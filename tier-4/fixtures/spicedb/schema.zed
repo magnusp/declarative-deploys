@@ -1,0 +1,16 @@
+// SpiceDB Schema for GitOps Workload Authorization
+definition user {}
+
+definition team {
+    relation member: user
+}
+
+definition environment {
+    relation admin: user
+}
+
+definition service {
+    relation owner: team | team#member
+    relation target_env: environment
+    permission deploy = owner->member + target_env->admin
+}

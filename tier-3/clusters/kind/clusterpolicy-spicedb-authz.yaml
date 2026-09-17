@@ -1,0 +1,72 @@
+# Kyverno platform policy: verifies that the actor who pushed/built the
+# container image or values artifact has 'deploy' permission on the target
+# workload according to SpiceDB ReBAC relations.
+#
+# Scoped directly to the 'apps' namespace for now. Tier 4 retrofits this to
+# match on the governance.platform.io/managed label instead, so the policy
+# generalizes to any number of opt-in application workspaces.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: spicedb-attested-deploy-authz
+spec:
+  background: false
+  rules:
+    - name: check-spicedb-deployer-permission
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+              namespaces:
+                - apps
+      context:
+        - name: imageData
+          imageRegistry:
+            reference: "{{ request.object.spec.template.spec.containers[0].image }}"
+        # Read the deployer actor from the OCI container image labels
+        - name: deployer
+          variable:
+            jmesPath: "imageData.configData.config.Labels.\"dev.authz.app.deployer\" || imageData.configData.config.Labels.\"org.opencontainers.image.vendor\" || ''"
+        - name: spiceDbCheck
+          apiCall:
+            # apiCall.urlPath only ever addresses the Kubernetes API server;
+            # calling an arbitrary in-cluster service requires service.url.
+            service:
+              url: "http://spicedb.authz.svc.cluster.local:8443/v1/permissions/check"
+              # SpiceDB requires the preshared key configured on the
+              # SpiceDBCluster's secretName (spicedb-preshared-key).
+              headers:
+                - key: Authorization
+                  value: "Bearer showcase-authz-key"
+            method: POST
+            data:
+              - key: consistency
+                value:
+                  fullyConsistent: true
+              - key: resource
+                value:
+                  objectType: "service"
+                  objectId: "{{ request.object.metadata.name }}"
+              - key: permission
+                value: "deploy"
+              - key: subject
+                value:
+                  object:
+                    objectType: "user"
+                    objectId: "{{ deployer }}"
+      validate:
+        failureAction: Enforce
+        message: "Deployment Rejected by SpiceDB: Actor '{{ deployer }}' does not have 'deploy' permissions on service '{{ request.object.metadata.name }}'."
+        deny:
+          conditions:
+            # Fail closed: deny both when no deployer identity is present on
+            # the image (nothing to authorize) and when SpiceDB doesn't grant
+            # 'deploy' permission to whatever identity is present.
+            any:
+              - key: "{{ deployer }}"
+                operator: Equals
+                value: ""
+              - key: "{{ spiceDbCheck.permissionship }}"
+                operator: NotEquals
+                value: "PERMISSIONSHIP_HAS_PERMISSION"

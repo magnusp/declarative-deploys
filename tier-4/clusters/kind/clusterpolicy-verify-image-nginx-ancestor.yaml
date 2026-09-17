@@ -1,0 +1,40 @@
+# Platform policy: verifies that a container image in a managed application
+# workspace descends from an approved nginx:1.27 base image, by comparing its
+# rootfs layer digests (fetched live from the registry via imageRegistry)
+# against known-good nginx:1.27 base layer digests. This is a layer-hash
+# allowlist, not a signature or attestation check — it carries no cryptographic
+# guarantee about who built the image, only that one of its layers matches a
+# digest recorded here, and it goes stale whenever the nginx:1.27 base image is
+# rebuilt upstream. See tier-4/README.md for a real attestation-based
+# alternative (Kyverno verifyImages + SLSA provenance).
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-app-image-nginx-ancestor
+spec:
+  webhookTimeoutSeconds: 30
+  background: false
+  rules:
+    - name: verify-nginx-layer-ancestor
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+              namespaceSelector:
+                matchLabels:
+                  governance.platform.io/managed: "true"
+      context:
+        - name: imageData
+          imageRegistry:
+            reference: "{{ request.object.spec.template.spec.containers[0].image }}"
+      validate:
+        failureAction: Enforce
+        message: "Deployment rejected: image layers do not contain an approved 'nginx:1.27' base image rootfs layer."
+        deny:
+          conditions:
+            all:
+              # Asserts that the image contains the root base layer from official nginx:1.27 (bookworm or alpine)
+              - key: "{{ imageData.configData.rootfs.diff_ids[?contains(@, 'sha256:7fb72a7d1a8e984ccd01277432de660162a547a00de77151518dc9033cfb8cb4') || contains(@, 'sha256:08000c18d16dadf9553d747a58cf44023423a9ab010aab96cf263d2216b8b350')] | length(@) }}"
+                operator: LessThan
+                value: 1
