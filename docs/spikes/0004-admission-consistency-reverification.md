@@ -30,7 +30,12 @@ this pattern, applied to exactly one field. The spike generalises it.
 ## Investigation approach
 
 **Enumerate the drift surface.** For each fact the gate relies on, establish whether admission can observe
-it and re-verify it. Start with the facts already known to matter: the running image reference, the approval
+it and re-verify it. The mechanism for moving verified facts into policy logic is confirmed: Kyverno adds a
+successfully verified attestation to the policy context under the name given in the `attestations` block,
+which makes its predicate fields available to later rules and to subsequent `apiCall` contexts. That is how
+an attested fact reaches a consistency check — and it is also how
+`clusterpolicy-spicedb-authz.yaml` should obtain its subject identity, instead of reading the unsigned
+`dev.authz.app.deployer` OCI label it uses today. Start with the facts already known to matter: the running image reference, the approval
 predicate covering that image, the values payload digest the composition consumed, and the identity of the
 publishing actor. The values payload is the hard one — the composed `ExternalArtifact` is not visible to a
 `Deployment`-scoped policy, so establish what, if anything, ties the admitted workload back to a specific

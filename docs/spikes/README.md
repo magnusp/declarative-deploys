@@ -75,10 +75,41 @@ the signing identity outside the cluster.
 The cost of that choice is inherited by every spike here: **the gate is only as strong as the completeness of
 the admission-time consistency checks.** Spike 4 exists specifically to size that.
 
+## Known-viable work that precedes the spikes
+
+Two items below are **not** spikes, because they are no longer investigations — the mechanisms are
+confirmed, and only the wiring is missing. They are listed here because every spike is easier once they
+exist, and because both are worth doing on their own merits whether or not the approval gates are ever
+scheduled.
+
+Both workflows already produce signed SLSA provenance with `push-to-registry: true`, and **nothing
+consumes it**: neither `OCIRepository` carries a `verify:` block, and no policy uses `verifyImages`. The
+evidence is signed and discarded. Meanwhile `clusterpolicy-spicedb-authz.yaml` derives the acting identity
+from `imageData.configData.config.Labels` — unsigned OCI metadata that anyone able to push to the registry
+path can set arbitrarily. The trustworthy copy sits unconsumed beside the forgeable one.
+
+1. **Verify the image provenance at admission** *(tiers 3 and 4)*. Add a `verifyImages` rule with a keyless
+   attestor pinned to `build-app-image.yaml`'s OIDC issuer and subject. This removes the
+   arbitrary-image substitution path outright, which also means `image.repository` being unconstrained in
+   `values.schema.json` stops being load-bearing. It further offers a principled replacement for
+   `clusterpolicy-verify-image-nginx-ancestor.yaml`, whose hardcoded layer-digest allowlist carries no
+   cryptographic guarantee and goes stale whenever the upstream `nginx:1.27` base image is rebuilt.
+2. **Sign the artifacts and verify them at the source** *(tier 2 onward)*. Add a `cosign sign` step to both
+   workflows and a `verify:` block with `matchOIDCIdentity` to both `OCIRepository` objects. The extra
+   signing step is necessary: `actions/attest-build-provenance` produces an *attestation*, and Flux's
+   `verify` checks *plain signatures*, so what is pushed today would not satisfy it. This is the only
+   in-cluster verification tier 2 can host at all.
+
+Be clear about what these buy. They establish **provenance of origin** — this artifact came from our
+workflow, in our repository. They say nothing about whether the change was examined, so they do not
+restore the approval control and do not substitute for any spike below. They also make admission and
+reconciliation newly dependent on registry reachability and Sigstore verification, which sharpens the
+availability question in [spike 4](0004-admission-consistency-reverification.md) rather than answering it.
+
 ## The spikes
 
 1. **[Provenance-chained four-eyes](0001-provenance-chained-four-eyes.md)** *(tier 2 publication, tier 3/4
-   admission — size L)* — prove both deploy inputs descend from commits that passed multi-reviewer pull
+   admission — size M)* — prove both deploy inputs descend from commits that passed multi-reviewer pull
    requests, and carry that proof where the cluster can check it. The primary option: it reconstructs the
    tier 0/1 control rather than substituting a different one.
 2. **[Gate integrity](0002-gate-integrity.md)** *(tier 2 onward — size M)* — stop the change author from

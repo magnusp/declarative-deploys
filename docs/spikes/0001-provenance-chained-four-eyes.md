@@ -2,7 +2,7 @@
 
 * **Target tier:** tier 2 (publication), tiers 3 and 4 (admission)
 * **Enforcement point:** the CI workflow at tier 2; the Kyverno admission webhook at tiers 3 and 4
-* **Size:** L
+* **Size:** M (reduced from L — the enforcement mechanics below are now verified rather than open)
 * **Controls:** A.8.32 (change management), A.8.25 (secure development lifecycle), A.8.4 (access to source code), A.5.3 (segregation of duties)
 
 ## Question
@@ -42,24 +42,38 @@ not merely *count*. Snapshot the branch protection or ruleset requirements in fo
 repository settings can be relaxed afterwards and a predicate that merely asserts "the rules were satisfied"
 becomes unfalsifiable.
 
-**Enforce the fact — and expect the two inputs to need different mechanisms.** This is where the spike's real
-risk sits, and it should be resolved early:
+A custom predicate is unavoidable here, because the attestation the workflows already produce does not carry
+the facts this gate needs. GitHub's SLSA v1 provenance populates
+`buildDefinition.internalParameters.github` with `event_name`, `repository_id`, `repository_owner_id`, and
+`runner_environment` — repository and workflow identifiers only. **There is no `github.actor` or
+`github.triggering_actor` anywhere in the predicate**, so neither the deploying human's identity nor any
+review state can be read out of the existing provenance.
 
-* **The image** is straightforward in principle. Kyverno's `verifyImages` with an `attestations` block can
-  require a validly signed predicate and evaluate `conditions` against its fields (approval count at or
-  above the threshold, approvers excluding the author, base branch equal to `main`). Confirm that
-  `verifyImages` conditions can express the independence check, not just a count.
-* **The values artifact is invisible to admission control.** It is not a container image and never appears
-  in a pod spec, so Kyverno has nothing to inspect. Flux's `OCIRepository.spec.verify` can verify a cosign
-  or notation *signature* on it, but signature verification alone does not evaluate predicate conditions —
-  it proves the artifact was signed, not that two people approved the change it carries.
+**Enforce the fact.** The two inputs need different mechanisms, and the asymmetry between them is now
+established rather than open:
 
-  Resolving that asymmetry is the core of this spike. Candidate directions, in rough order of expected
-  viability: verify the signature at the Flux layer and re-verify the approval facts at admission against the
-  rendered `Deployment` (the ADR-0001 shape, and the reason spike 4 exists); gate the values artifact
-  entirely on the publication side at tier 2 and accept that as the tier's ceiling; or validate the composed
-  `ExternalArtifact` with a dedicated admission policy, which is the most complete option and the one with
-  the worst gate-integrity story.
+* **The image side is solved in principle.** Kyverno's `verifyImages` can verify an in-toto attestation
+  with a keyless attestor pinned to the GitHub OIDC issuer and subject, and evaluate `conditions` against
+  predicate fields with JMESPath — so approval count, base branch, and approvers-excluding-the-author are
+  all expressible. Better still, a verified attestation can be **named**, which puts its values into the
+  policy context for later rules and subsequent `apiCall` contexts. That is the mechanism by which
+  `clusterpolicy-spicedb-authz.yaml` should obtain its subject identity: from a verified predicate rather
+  than from `imageData.configData.config.Labels`, which anyone able to push to the registry path can set
+  to anything.
+* **The values artifact cannot be enforced this way, and it is not a matter of effort.** It is not a
+  container image and never appears in a pod spec, so Kyverno has nothing to inspect. Flux's
+  `OCIRepository.spec.verify` with `provider: cosign` verifies **plain signatures** and supports
+  `matchOIDCIdentity` (regular expressions against the Fulcio certificate's issuer and subject), but it has
+  no code path for in-toto or SLSA attestations and cannot evaluate predicate fields at all. Note also
+  that `actions/attest-build-provenance` produces an attestation rather than a plain signature, so what the
+  workflows push today would not satisfy `verify` even for signature checking — a `cosign sign` step is a
+  prerequisite.
+
+  So the ceiling on the values artifact is: *this artifact was signed by the identity of our publish
+  workflow*. Strong provenance of origin, no evaluation of approval state. Carrying approval facts through
+  to enforcement therefore requires either encoding them where admission can re-verify them against the
+  rendered `Deployment` (the ADR-0001 shape, and the reason spike 4 exists), or accepting publication-side
+  gating as tier 2's ceiling. **Deciding between those two is what remains of this spike's open risk.**
 
 **Check the independence claim honestly.** An automated gate is inherently not the author, but it is only
 *independent* if the author cannot influence it. That property is spike 2's subject, and this spike should
@@ -76,6 +90,11 @@ artifact asymmetry, including the option of declaring tier 2 structurally unable
 
 The repository already produces signed SLSA provenance for both artifacts, with `push-to-registry: true`,
 and nothing consumes it — neither `OCIRepository` carries a `verify:` block, and no policy uses
-`verifyImages`. Whatever this spike concludes, the verification side needs building from scratch, but the
-signing infrastructure and workflow permissions (`id-token: write`, `attestations: write`) are already in
-place.
+`verifyImages`. The signing infrastructure and workflow permissions (`id-token: write`,
+`attestations: write`) are therefore already in place; only the verification side is missing.
+
+Consuming that existing provenance is now known-viable work rather than an investigation, and it should
+land before this spike starts — see **Known-viable work that precedes the spikes** in the
+[index](README.md). It is worth doing on its own merits: it closes the arbitrary-image substitution path
+independently of whether the approval gate is ever built, and it gives this spike a working
+`verifyImages` rule to extend rather than a blank file.

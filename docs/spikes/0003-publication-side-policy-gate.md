@@ -32,7 +32,13 @@ therefore worth doing for its own sake, but it is not a gate.
 
 **Tighten the schema.** Set `additionalProperties: false` throughout, constrain `image.repository` to an
 allowlist pattern covering the registry paths this pipeline actually publishes to, and require `image.tag`
-to match an immutable form — a 40-character hex SHA or a `sha256:` digest. Expect this to reveal that the
+— noting that if the known-viable provenance verification in the [index](README.md#known-viable-work-that-precedes-the-spikes)
+has already landed, the `image.repository` constraint is defence in depth rather than the primary control,
+since an image not built by the platform's own workflow will fail admission at tiers 3 and 4 regardless of
+what the values artifact claims. At tier 2 there is no such backstop, so here it remains primary.
+
+Require `image.tag` to match an immutable form — a 40-character hex SHA or a `sha256:` digest. Expect this
+to reveal that the
 checked-in `apps-source/values.yaml` (`tag: "latest"`) violates the rule you want, which is informative
 rather than inconvenient: it means the only way to produce a valid values artifact becomes the publish
 workflow itself. Decide whether that forcing function is desirable or whether the repository default needs a

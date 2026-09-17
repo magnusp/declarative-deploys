@@ -31,13 +31,22 @@ worth checking whether application-supplied values can influence how that policy
 cannot, because `archetype-backend.name` resolves from `.Release.Name`, which the platform-owned
 `HelmRelease` sets, but that is a property worth asserting deliberately rather than inheriting by luck.
 
-**The signing identity.** This is the half with the most leverage. An attestation is only meaningful if the
-gated party cannot mint an equivalent one. Keyless Sigstore signing records the issuing workflow in the
-certificate, so a verification policy can require that the approval attestation came from a specific
-platform-owned workflow path and reference, rather than from any workflow in the repository. Investigate
-pinning on the workflow reference (the `job_workflow_ref` claim, surfaced to Kyverno's keyless verification
-as a certificate extension alongside `subject` and `issuer`), and confirm what happens when an application
-team copies the gate workflow into a path they control — the verification must reject it.
+**The signing identity.** This is the half with the most leverage, and the mechanism is confirmed to exist
+on both enforcement paths. An attestation is only meaningful if the gated party cannot mint an equivalent
+one. Keyless Sigstore signing records the issuing workflow in the Fulcio certificate, and both consumers can
+pin on it:
+
+* **Kyverno** supports a `keyless` attestor entry with `issuer` and `subject` (or `subjectRegExp`) inside a
+  `verifyImages` `attestations` block.
+* **Flux** supports `matchOIDCIdentity`, a list of `issuer`/`subject` pairs evaluated as Go regular
+  expressions against the certificate identity.
+
+The investigation is therefore not *whether* to pin but *how tightly*, and the failure modes of getting it
+wrong. Anchor both patterns to a full workflow reference rather than a repository prefix — a subject regex
+such as `^https://github.com/magnusp/declarative-deploys.*$` matches **any** workflow in the repository,
+including one an application team adds, which defeats the entire control while appearing to implement it.
+Then confirm the negative case directly: an application team copies the gate workflow to a path they own,
+and verification must reject the attestation it produces.
 
 **Registry write access.** If anyone can push to `ghcr.io/magnusp/apps/*`, they can publish an image with
 arbitrary OCI labels and an arbitrary values artifact, bypassing CI entirely. At tier 2 this is fatal, since
