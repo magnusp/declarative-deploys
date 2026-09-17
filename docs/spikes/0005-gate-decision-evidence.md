@@ -3,7 +3,11 @@
 * **Target tier:** tier 4
 * **Enforcement point:** Policy Reporter, backed by Kyverno `PolicyReport` data
 * **Size:** S
-* **Controls:** A.8.15 (logging), A.8.16 (monitoring activities), A.5.28 (collection of evidence), A.8.32 (change management)
+* **Controls:**
+  * A.8.15 — logging
+  * A.8.16 — monitoring activities
+  * A.8.32 — change management
+  * A.5.28 — collection of evidence
 
 ## Question
 

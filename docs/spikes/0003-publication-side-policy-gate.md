@@ -3,7 +3,10 @@
 * **Target tier:** tier 2
 * **Enforcement point:** the `publish-app-values.yaml` workflow, before `flux push`
 * **Size:** S
-* **Controls:** A.8.9 (configuration management), A.8.28 (secure coding), A.8.32 (change management)
+* **Controls:**
+  * A.8.9 — configuration management
+  * A.8.28 — secure coding
+  * A.8.32 — change management
 
 ## Question
 
@@ -32,17 +35,17 @@ therefore worth doing for its own sake, but it is not a gate.
 
 **Tighten the schema.** Set `additionalProperties: false` throughout, constrain `image.repository` to an
 allowlist pattern covering the registry paths this pipeline actually publishes to, and require `image.tag`
-— noting that if the known-viable provenance verification in the [index](README.md#known-viable-work-that-precedes-the-spikes)
-has already landed, the `image.repository` constraint is defence in depth rather than the primary control,
-since an image not built by the platform's own workflow will fail admission at tiers 3 and 4 regardless of
-what the values artifact claims. At tier 2 there is no such backstop, so here it remains primary.
+to match an immutable form — a 40-character hex SHA or a `sha256:` digest.
 
-Require `image.tag` to match an immutable form — a 40-character hex SHA or a `sha256:` digest. Expect this
-to reveal that the
-checked-in `apps-source/values.yaml` (`tag: "latest"`) violates the rule you want, which is informative
-rather than inconvenient: it means the only way to produce a valid values artifact becomes the publish
-workflow itself. Decide whether that forcing function is desirable or whether the repository default needs a
-different representation.
+If the provenance verification described in the [index](README.md#known-viable-work-that-precedes-the-spikes)
+has already landed, the `image.repository` constraint becomes defence in depth rather than the primary
+control, because an image the platform's own workflow did not build fails admission at tiers 3 and 4
+whatever the values artifact claims. At tier 2 there is no such backstop, so here it stays primary.
+
+Expect the tag rule to reveal that the checked-in `apps-source/values.yaml` (`tag: "latest"`) violates it.
+That is informative rather than inconvenient: it means the publish workflow becomes the only way to produce
+a valid values artifact. Decide whether that forcing function is desirable, or whether the repository
+default needs a different representation.
 
 **Add a policy-as-code check.** Run `conftest` or Open Policy Agent policies against the rendered values
 in the workflow before `flux push`, covering the properties a JSON schema cannot express — cross-field

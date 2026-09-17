@@ -2,8 +2,12 @@
 
 * **Target tier:** tier 2 (publication), tiers 3 and 4 (admission)
 * **Enforcement point:** the CI workflow at tier 2; the Kyverno admission webhook at tiers 3 and 4
-* **Size:** M (reduced from L — the enforcement mechanics below are now verified rather than open)
-* **Controls:** A.8.32 (change management), A.8.25 (secure development lifecycle), A.8.4 (access to source code), A.5.3 (segregation of duties)
+* **Size:** M
+* **Controls:**
+  * A.8.32 — change management
+  * A.8.25 — secure development lifecycle
+  * A.8.4 — access to source code
+  * A.5.3 — segregation of duties
 
 ## Question
 
@@ -69,11 +73,12 @@ established rather than open:
   workflows push today would not satisfy `verify` even for signature checking — a `cosign sign` step is a
   prerequisite.
 
-  So the ceiling on the values artifact is: *this artifact was signed by the identity of our publish
-  workflow*. Strong provenance of origin, no evaluation of approval state. Carrying approval facts through
-  to enforcement therefore requires either encoding them where admission can re-verify them against the
-  rendered `Deployment` (the ADR-0001 shape, and the reason spike 4 exists), or accepting publication-side
-  gating as tier 2's ceiling. **Deciding between those two is what remains of this spike's open risk.**
+  So the ceiling on the values artifact is: *this artifact was signed by the identity of the platform's
+  publish workflow*. Strong provenance of origin, no evaluation of approval state. Carrying approval
+  facts through to enforcement therefore requires either encoding them where admission can re-verify
+  them against the rendered `Deployment` (the ADR-0001 shape, and the reason spike 4 exists), or
+  accepting publication-side gating as tier 2's ceiling. **Deciding between those two is what remains of
+  this spike's open risk.**
 
 **Check the independence claim honestly.** An automated gate is inherently not the author, but it is only
 *independent* if the author cannot influence it. That property is spike 2's subject, and this spike should

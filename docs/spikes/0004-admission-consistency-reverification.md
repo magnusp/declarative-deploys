@@ -3,7 +3,10 @@
 * **Target tier:** tiers 3 and 4
 * **Enforcement point:** the Kyverno admission webhook
 * **Size:** M
-* **Controls:** A.8.9 (configuration management), A.8.32 (change management), A.8.25 (secure development lifecycle)
+* **Controls:**
+  * A.8.9 — configuration management
+  * A.8.25 — secure development lifecycle
+  * A.8.32 — change management
 
 ## Question
 
@@ -33,13 +36,16 @@ this pattern, applied to exactly one field. The spike generalises it.
 it and re-verify it. The mechanism for moving verified facts into policy logic is confirmed: Kyverno adds a
 successfully verified attestation to the policy context under the name given in the `attestations` block,
 which makes its predicate fields available to later rules and to subsequent `apiCall` contexts. That is how
-an attested fact reaches a consistency check — and it is also how
-`clusterpolicy-spicedb-authz.yaml` should obtain its subject identity, instead of reading the unsigned
-`dev.authz.app.deployer` OCI label it uses today. Start with the facts already known to matter: the running image reference, the approval
-predicate covering that image, the values payload digest the composition consumed, and the identity of the
-publishing actor. The values payload is the hard one — the composed `ExternalArtifact` is not visible to a
+an attested fact reaches a consistency check — and it is also how `clusterpolicy-spicedb-authz.yaml`
+should obtain its subject identity, instead of reading the unsigned `dev.authz.app.deployer` OCI label it
+uses today.
+
+Start with the facts already known to matter: the running image reference, the approval predicate covering
+that image, the values payload digest the composition consumed, and the identity of the publishing actor.
+The values payload is the hard one — the composed `ExternalArtifact` is not visible to a
 `Deployment`-scoped policy, so establish what, if anything, ties the admitted workload back to a specific
-attested values digest. If nothing does, say so: that is a finding, and it bounds every other spike's claims.
+attested values digest. If nothing does, say so: that is a finding, and it bounds every other spike's
+claims.
 
 **Close the container blind spot.** All three tier-4 `ClusterPolicy` objects and the chart-packaged `Policy`
 inspect only `spec.template.spec.containers[0]`. A second container, an `initContainers` entry, or an

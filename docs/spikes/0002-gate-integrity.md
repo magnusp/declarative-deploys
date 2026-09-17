@@ -1,9 +1,15 @@
 # Spike 2: Gate integrity
 
 * **Target tier:** tier 2 onward
-* **Enforcement point:** repository ownership rules, OIDC trust policy, registry permissions, and cluster RBAC
+* **Enforcement point:** repository ownership rules, OIDC trust policy, registry permissions, and cluster
+  RBAC
 * **Size:** M
-* **Controls:** A.5.3 (segregation of duties), A.8.2 (privileged access rights), A.8.4 (access to source code), A.8.18 (use of privileged utility programs), A.8.24 (use of cryptography)
+* **Controls:**
+  * A.5.3 — segregation of duties
+  * A.8.2 — privileged access rights
+  * A.8.4 — access to source code
+  * A.8.18 — use of privileged utility programs
+  * A.8.24 — use of cryptography
 
 ## Question
 
