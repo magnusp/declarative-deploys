@@ -4,6 +4,9 @@ A demonstration of decoupled platform engineering and application development wo
 OCI artifacts, and Kyverno on a local kind cluster — presented as a progression of five isolated tiers,
 each adding one capability on top of the last.
 
+New to this repository and doing the actual migration work? Read [`GAMEPLAN.md`](GAMEPLAN.md) first — a
+short, non-technical framing of why this progression exists and what each tier buys you.
+
 ## Tiers
 
 This repository demonstrates the platform/application split, GitOps delivery, and supply-chain
