@@ -59,6 +59,25 @@ earlier tiers.
 
 ---
 
+## Automated change approval
+
+Decoupling deploys from git commits costs something that is easy to miss. At tiers 0 and 1 the
+application team commits to git, so every change travels through a pull request and somebody other than
+the author approves it before it merges — four-eyes review, with the git history as its evidence. Nobody
+designed that control; it fell out of the delivery mechanism.
+
+Tier 2 replaces the delivery mechanism, and the control disappears with it. Publishing an OCI artifact
+*is* the deploy, so there is no pull request against the thing that deploys and nobody to approve it.
+Tiers 3 and 4 add authorization (*was this actor allowed?*) and build provenance (*where did this
+artifact come from?*), but neither answers *was this change examined before it shipped?*
+
+[`docs/spikes/`](docs/spikes/README.md) holds time-boxed investigation drafts into automated
+pre-exposure gates that carry that approval forward without a human in the loop, framed against ISO/IEC
+27001:2022 Annex A Clause 8. They are drafts of proposed work, not implemented capability — nothing in
+any tier enforces a change-approval gate today.
+
+---
+
 ## Directory structure
 
 * [`tier-0/`](tier-0/) through [`tier-4/`](tier-4/): isolated tier directories, each with its own
@@ -67,6 +86,10 @@ earlier tiers.
 * [`.github/workflows/`](.github/workflows/): GitHub Actions workflows for publishing charts, images,
   and values artifacts with build provenance attestations. Each workflow notes the tier it becomes
   relevant at.
+* [`docs/spikes/`](docs/spikes/README.md): drafts of proposed investigations into automated change
+  approval for tiers 2 through 4 — see [Automated change approval](#automated-change-approval) above.
+* [`docs/adr/`](docs/adr/): architecture decision records.
+* [`CONTEXT.md`](CONTEXT.md): glossary of the domain language used across these documents.
 
 ---
 
