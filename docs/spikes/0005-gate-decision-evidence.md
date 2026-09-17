@@ -5,9 +5,9 @@
 * **Size:** S
 * **Controls:**
   * A.8.15 — logging
+  * A.5.33 — protection of records
   * A.8.16 — monitoring activities
   * A.8.32 — change management
-  * A.5.28 — collection of evidence
 
 ## Question
 

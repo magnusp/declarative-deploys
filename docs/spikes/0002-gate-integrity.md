@@ -8,7 +8,7 @@
   * A.5.3 — segregation of duties
   * A.8.2 — privileged access rights
   * A.8.4 — access to source code
-  * A.8.18 — use of privileged utility programs
+  * A.8.9 — configuration management
   * A.8.24 — use of cryptography
 
 ## Question
